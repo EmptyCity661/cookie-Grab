@@ -97,6 +97,8 @@ std::string theme::StartPageCss() {
     const Palette& p = g_pal;
     std::string css;
     css += ":root{\n";
+    // 让原生弹出 UI（select 下拉列表、datalist 候选、复选框等）跟随深浅色主题
+    css += "  color-scheme:" + std::string(p.dark ? "dark" : "light") + ";\n";
     css += "  --canvas:" + Hex(p.canvas) + ";\n";
     css += "  --surface:" + Hex(p.surface) + ";\n";
     css += "  --surface-alt:" + Hex(p.surfaceAlt) + ";\n";

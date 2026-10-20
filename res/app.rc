@@ -1,5 +1,4 @@
 #include <windows.h>
-#include "ids.h"
 
 // 应用图标
 100 ICON "app.ico"
