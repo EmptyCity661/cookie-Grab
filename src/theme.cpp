@@ -124,7 +124,8 @@ std::string theme::Hex(COLORREF c) {
 
 std::string theme::Rgba(COLORREF c, double alpha) {
     char b[40];
-    if (alpha < 0) alpha = 0; if (alpha > 1) alpha = 1;
+    if (alpha < 0) alpha = 0;
+    if (alpha > 1) alpha = 1;
     snprintf(b, sizeof(b), "rgba(%d,%d,%d,%.3f)", GetRValue(c), GetGValue(c), GetBValue(c), alpha);
     return b;
 }

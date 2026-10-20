@@ -7,12 +7,13 @@ res/app.res
 *.log
 logs/
 
-# ===== 旧源码备份（非项目源码，仅为历史快照） =====
+# ===== 临时 / 打包 / 备份产物（非项目源码） =====
+_uipack_tmp/
+cookiegrabber_v3资源包.zip
 backup-20261020/
 
 # ===== 本地代理 / IDE / 智能体数据 =====
-# .codebuddy/ 仅存插件开关等本机设置；.qoder/repowiki 是项目文档（中文 Wiki +
-# 知识卡片），随仓库分发，因此不忽略
+# .codebuddy/ 仅存插件开关等本机设置；.qoder/repowiki 是项目文档，随仓库分发，不忽略
 .codebuddy/
 
 # ===== 编辑器临时文件 =====
