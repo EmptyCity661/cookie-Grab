@@ -12,8 +12,13 @@ std::wstring SettingsFilePath() {
 
 Settings DefaultSettings() {
     Settings s;
-    s.presets.push_back({ L"微博", L"https://weibo.com" });
-    s.presets.push_back({ L"知乎", L"https://www.zhihu.com" });
+    // 主流网盘优先（登录态 Cookie/Token 抓取需求最集中），再保留两个常用站点
+    s.presets.push_back({ L"百度网盘", L"https://pan.baidu.com" });
+    s.presets.push_back({ L"阿里云盘", L"https://www.alipan.com" });
+    s.presets.push_back({ L"夸克网盘", L"https://pan.quark.cn" });
+    s.presets.push_back({ L"天翼云盘", L"https://cloud.189.cn" });
+    s.presets.push_back({ L"迅雷网盘", L"https://pan.xunlei.com" });
+    s.presets.push_back({ L"115网盘", L"https://115.com" });
     s.presets.push_back({ L"B站", L"https://www.bilibili.com" });
     s.presets.push_back({ L"GitHub", L"https://github.com/login" });
     return s;

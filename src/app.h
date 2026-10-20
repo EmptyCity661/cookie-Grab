@@ -102,6 +102,11 @@ public:
     bool  Tracking() const { return tracking_; }
     void  SetTracking(bool v) { tracking_ = v; }
 
+    // 焦点提示：仅键盘导航时显示（系统 DrawFocusRect 的点状直角框在圆角按钮上会露出直角，
+    // 看起来像“被裁掉的影子边”，鼠标点击后不应出现）
+    bool  FocusCueOn() const { return focusCue_; }
+    void  SetFocusCue(bool on);
+
     // 设置页滚动
     int   SettingsScroll() const { return settingsScroll_; }
     void  SetSettingsScroll(int v);
@@ -162,6 +167,7 @@ private:
     bool active_ = true;
     bool tracking_ = false;
     HWND hoverCtl_ = nullptr;
+    bool focusCue_ = false;      // 焦点提示可见：仅键盘 Tab/方向键导航后为 true
     // 设置页
     int settingsScroll_ = 0, settingsContentH_ = 0, settingsViewH_ = 0;
     RECT settingsView_ = {};

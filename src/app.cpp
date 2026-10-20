@@ -193,10 +193,26 @@ int App::Run() {
             HWND f = GetFocus();
             if (f && (f == urlCombo_ || IsChild(urlCombo_, f))) { OpenUrl(); continue; }
         }
+        // 输入方式判定：所有按键消息都先经过本循环（含发往子控件的），
+        // 因此鼠标按下即可收起焦点提示，键盘导航再重新显示
+        if (msg.message == WM_LBUTTONDOWN || msg.message == WM_RBUTTONDOWN || msg.message == WM_MBUTTONDOWN) {
+            SetFocusCue(false);
+        } else if (msg.message == WM_KEYDOWN &&
+                   (msg.wParam == VK_TAB || msg.wParam == VK_LEFT || msg.wParam == VK_RIGHT ||
+                    msg.wParam == VK_UP || msg.wParam == VK_DOWN)) {
+            SetFocusCue(true);
+        }
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
     return (int)msg.wParam;
+}
+
+void App::SetFocusCue(bool on) {
+    if (focusCue_ == on) return;
+    focusCue_ = on;
+    // 立即重绘当前获得焦点的控件：焦点环随输入方式即时出现/消失
+    if (HWND f = GetFocus()) InvalidateRect(f, nullptr, FALSE);
 }
 
 int App::S(int v) const { return MulDiv(v, dpi_, 96); }
@@ -945,7 +961,15 @@ static void DrawModernButton(const DRAWITEMSTRUCT* dis, App* app) {
     } else {
         TextOut2(dc, t, rc, app->FontBtn(), text, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
-    if (dis->itemState & ODS_FOCUS) DrawFocusRect(dc, &rc);
+    // 焦点提示：不能再用 DrawFocusRect——它是 XOR 点状【直角】框，
+    // 四角落在圆角按钮之外，看起来就是一条被裁掉的影子边；XOR 还会在彩色填充上反色。
+    // 改为内缩的圆角焦点环，且只在键盘导航时显示（鼠标点击由 App::SetFocusCue 收起）。
+    if (app->FocusCueOn() && (dis->itemState & ODS_FOCUS)) {
+        int inset = app->S(2);
+        RECT fr = { rc.left + inset, rc.top + inset, rc.right - inset, rc.bottom - inset };
+        bool onAccent = (fill == pal.accentFill || fill == pal.accentHover || fill == pal.accentActive);
+        FillRoundRect(dc, fr, r - inset, CLR_NONE, onAccent ? pal.onAccent : pal.focusRing, app->S(2));
+    }
 }
 
 static int ToggleIndex(int id) {
