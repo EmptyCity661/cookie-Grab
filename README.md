@@ -101,6 +101,7 @@ cd d:\itemi\cookie
 
 ```
 .
+├── .qoder/repowiki/       # 中文 Wiki 与知识卡片（随仓库分发）
 ├── build.bat              # 唯一构建入口（windres + g++，静态链接）
 ├── make_icon.py           # 纯 Python 生成 32×32 应用图标（非构建步骤）
 ├── include/
@@ -137,6 +138,17 @@ main → App ─→ WebViewHost → WebView2 COM
 ```
 
 UI 与业务解耦：WebView2 只通过 `std::function` 回调（`MessageFn` / `NavFn` / `CookiesFn` / `ReadyFn`）向外暴露事件。
+
+---
+
+## 文档
+
+除本 README 外，仓库内 `.qoder/repowiki/` 随代码一同维护一套中文文档：
+
+- `.qoder/repowiki/zh/content/` —— 分层 Wiki：项目概述、安装与构建、架构设计（系统概览 / 事件系统 / 数据流 / 各核心模块）、核心模块详解、用户界面系统（绘制层 / 主题系统）、工具函数库、配置与部署、测试与调试
+- `.qoder/repowiki/knowledge/zh/` —— 知识卡片：编码规范、业务术语表、错误处理模式、依赖管理、日志系统、构建脚本与资源内嵌、WebView2 运行时
+
+改动绘制/主题/抓取相关代码时，同步更新对应的编码规范与业务术语表卡片；新增或调整 `settings.json` 字段时，同步更新设置持久化卡片与「配置与部署」章节。
 
 ---
 

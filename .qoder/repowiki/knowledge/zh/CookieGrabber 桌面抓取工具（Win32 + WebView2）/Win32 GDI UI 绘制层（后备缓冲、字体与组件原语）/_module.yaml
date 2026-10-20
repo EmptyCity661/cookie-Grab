@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: ui
+title: Win32 GDI UI 绘制层（后备缓冲、字体与组件原语）
+scope:
+    - src/ui.cpp
+    - src/ui.h
+source_files: []
+depends_on: []
+related_to:
+    - path: theme
