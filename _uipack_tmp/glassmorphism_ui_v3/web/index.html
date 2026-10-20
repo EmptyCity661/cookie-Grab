@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>浏览器工作台 3.0 · Glass UI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><div class="ambient ambient-c"></div>
+  <div class="app-window">
+    <header class="titlebar">
+      <div class="app-mark"><span class="mark-orbit"></span><span class="mark-core"></span></div>
+      <div class="app-name">浏览器工作台 <span class="version">3.0</span></div>
+      <div class="titlebar-spacer"></div>
+      <button class="window-control" aria-label="最小化">—</button>
+      <button class="window-control square" aria-label="最大化"></button>
+      <button class="window-control close" aria-label="关闭">×</button>
+    </header>
+    <div class="app-shell">
+      <aside class="sidebar glass-panel">
+        <div class="side-label">WORKSPACE</div>
+        <nav class="main-nav" aria-label="主导航">
+          <button class="nav-item active" data-view="browser"><span class="nav-icon">⌘</span><span>浏览器</span><span class="nav-indicator"></span></button>
+          <button class="nav-item" data-view="settings"><span class="nav-icon">◉</span><span>设置</span></button>
+          <button class="nav-item" data-view="help"><span class="nav-icon">?</span><span>说明</span></button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="online-dot"></div>
+          <div><div class="small-strong">运行环境正常</div><div class="muted tiny">WebView · 桌面工作台</div></div>
+        </div>
+      </aside>
+      <main class="content-area">
+        <section class="view active" id="view-browser">
+          <div class="page-heading">
+            <div><div class="eyebrow">BROWSER WORKSPACE / 01</div><h1>浏览器工作台</h1><p>清晰、沉浸、井然有序的桌面浏览体验。</p></div>
+            <div class="heading-chip"><span class="online-dot"></span> 系统已就绪</div>
+          </div>
+          <div class="toolbar glass-panel">
+            <div class="url-wrap"><span class="url-icon">◎</span><input id="addressInput" type="url" value="https://example.com" aria-label="示例网址" spellcheck="false"><span class="secure-chip"><span class="tiny-dot"></span> 示例地址</span></div>
+            <button class="btn btn-primary" id="openButton"><span class="btn-symbol">↗</span>打开网页</button>
+            <button class="btn btn-glass" id="refreshButton"><span class="btn-symbol">⟳</span>刷新</button>
+            <button class="btn btn-glass" id="infoButton"><span class="btn-symbol">ⓘ</span>页面信息</button>
+          </div>
+          <div class="browser-frame glass-panel">
+            <div class="browser-chrome">
+              <div class="tab-pill"><span class="tab-favicon">✦</span><span>示例页面</span><span class="tab-x">×</span></div>
+              <button class="new-tab" aria-label="新建标签页">＋</button>
+              <div class="chrome-spacer"></div><span class="chrome-dim">—</span><span class="chrome-dim">□</span><span class="chrome-dim">×</span>
+            </div>
+            <div class="browser-controls"><button aria-label="后退">‹</button><button aria-label="前进">›</button><button id="miniRefresh" aria-label="刷新">⟳</button><div class="mini-address"><span>♙</span> https://example.com</div><span class="chrome-star">☆</span><span>⋮</span></div>
+            <div class="webpage-preview" id="webpagePreview">
+              <div class="webpage-nav"><div class="demo-brand"><span class="brand-gem">✦</span> AURORA <span class="brand-sub">DIGITAL SPACE</span></div><div class="demo-links"><span class="selected">探索</span><span>体验</span><span>关于</span></div><button class="tiny-cta" id="demoExplore">开始探索 <span>↗</span></button></div>
+              <div class="hero-art">
+                <div class="star-field"></div><div class="moon"></div><div class="mountain mountain-back"></div><div class="mountain mountain-front"></div><div class="lake"></div>
+                <div class="hero-copy"><div class="hero-tag"><span class="tiny-dot"></span> DESIGN FOR CLARITY</div><h2>让每一次浏览<br><span>都更有质感。</span></h2><p>精心梳理的工作空间，让常用操作一目了然。</p><button class="hero-button" id="heroLearn">探索工作台 <span>→</span></button></div>
+                <div class="hero-note"><span class="note-line"></span><span>CALM INTERFACE<br><b>清晰 · 专注 · 高效</b></span></div>
+              </div>
+              <div class="feature-strip">
+                <article class="feature-card"><div class="feature-icon blue">✧</div><div><h3>轻盈布局</h3><p>合理分层，减少视觉干扰。</p></div><span class="feature-arrow">↗</span></article>
+                <article class="feature-card"><div class="feature-icon aqua">◌</div><div><h3>清晰反馈</h3><p>状态信息始终清楚可见。</p></div><span class="feature-arrow">↗</span></article>
+                <article class="feature-card"><div class="feature-icon violet">⌘</div><div><h3>灵活配置</h3><p>设置选项整齐分组。</p></div><span class="feature-arrow">↗</span></article>
+              </div>
+            </div>
+          </div>
+          <div class="statusbar glass-panel"><div class="status-left"><span class="online-dot"></span><span id="statusText">浏览器组件已就绪 · 示例页面正常显示</span></div><div class="status-right"><span>演示模式</span><span class="status-separator">/</span><strong>本地 UI 原型</strong><span class="signal-bars"><i></i><i></i><i></i></span></div></div>
+        </section>
+        <section class="view" id="view-settings">
+          <div class="page-heading"><div><div class="eyebrow">PREFERENCES / 02</div><h1>偏好设置</h1><p>按照你的习惯调整工作台的使用体验。</p></div><div class="heading-chip"><span class="sparkle">✦</span> 个性化空间</div></div>
+          <div class="settings-layout">
+            <section class="settings-card glass-panel"><div class="card-heading"><div class="card-icon">⌘</div><div><h2>常规设置</h2><p>工作台基础信息与默认行为</p></div></div>
+              <div class="field-row"><label for="launchMode">启动页面</label><select id="launchMode"><option>上次浏览页面</option><option selected>自定义示例页面</option><option>空白页面</option></select></div>
+              <div class="field-row"><label for="defaultUrl">默认网址</label><input id="defaultUrl" value="https://example.com" spellcheck="false"></div>
+              <div class="field-row"><label for="logName">诊断日志名称</label><input id="logName" value="browser-workspace.log"></div>
+            </section>
+            <section class="settings-card glass-panel"><div class="card-heading"><div class="card-icon aqua-icon">☷</div><div><h2>界面与行为</h2><p>控制常用界面选项与提示反馈</p></div></div>
+              <div class="toggle-grid">
+                <label class="toggle-row"><span><b>启动时恢复页面</b><small>打开应用后恢复上次页面</small></span><input type="checkbox" class="switch" checked><span class="switch-ui"></span></label>
+                <label class="toggle-row"><span><b>显示底部状态栏</b><small>展示当前运行状态</small></span><input type="checkbox" class="switch" checked><span class="switch-ui"></span></label>
+                <label class="toggle-row"><span><b>记录常规诊断日志</b><small>记录运行状态与错误信息</small></span><input type="checkbox" class="switch"><span class="switch-ui"></span></label>
+                <label class="toggle-row"><span><b>显示页面提示</b><small>在操作后显示轻量提示</small></span><input type="checkbox" class="switch" checked><span class="switch-ui"></span></label>
+              </div>
+            </section>
+            <section class="settings-card glass-panel"><div class="card-heading"><div class="card-icon violet-icon">◐</div><div><h2>外观主题</h2><p>玻璃材质、色彩与界面密度</p></div></div>
+              <div class="field-row"><label>主题模式</label><div class="segmented" role="group" aria-label="主题模式"><button class="selected" data-theme="dark">深色玻璃</button><button data-theme="light">浅色玻璃</button><button data-theme="system">跟随系统</button></div></div>
+              <div class="field-row"><label for="glassLevel">玻璃强度</label><div class="range-wrap"><input id="glassLevel" type="range" min="1" max="3" value="2"><span id="glassLevelText">标准</span></div></div>
+              <div class="field-row"><label for="density">界面密度</label><select id="density"><option>紧凑</option><option selected>舒适</option><option>宽松</option></select></div>
+            </section>
+            <section class="settings-card glass-panel"><div class="card-heading"><div class="card-icon coral-icon">⌂</div><div><h2>存储与诊断</h2><p>管理本地 UI 配置与演示状态</p></div></div>
+              <div class="path-field"><div><label for="dataPath">本地配置目录</label><div class="path-input"><span>▱</span><input id="dataPath" value="%LOCALAPPDATA%\\BrowserWorkspace\\settings" readonly></div></div><button class="btn btn-glass" id="copyPath">复制路径</button></div>
+              <div class="diagnostic-line"><span class="online-dot"></span><span>界面资源已加载</span><span class="diagnostic-version">主题资源 · v3.0</span></div>
+            </section>
+          </div>
+          <div class="settings-footer"><div class="helper-note"><span>ⓘ</span> 更改仅作用于本地演示界面，不会读取或处理浏览器会话数据。</div><div class="action-row"><button class="btn btn-glass" id="resetSettings">恢复默认</button><button class="btn btn-primary" id="saveSettings"><span class="btn-symbol">✓</span>保存设置</button></div></div>
+        </section>
+        <section class="view" id="view-help"><div class="page-heading"><div><div class="eyebrow">ABOUT / 03</div><h1>界面说明</h1><p>关于玻璃主题与本地演示原型。</p></div></div><div class="help-grid"><article class="help-card glass-panel"><div class="card-icon">✧</div><h2>磨砂玻璃材质</h2><p>通过半透明背景、背景模糊与细描边叠加出清透的玻璃层级。模糊效果会在支持 backdrop-filter 的浏览器中呈现。</p></article><article class="help-card glass-panel"><div class="card-icon aqua-icon">▧</div><h2>适配桌面窗口</h2><p>布局使用 Grid 与 Flex 组合，主区与侧栏可随窗口宽度变化。WebView2 中可复用这些样式作为界面层参考。</p></article><article class="help-card glass-panel"><div class="card-icon violet-icon">◇</div><h2>仅限演示数据</h2><p>本原型不接入 Cookie、Token、登录状态或真实浏览器存储。所有文案、网址与设置仅用于展示 UI。</p></article></div></section>
+      </main>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-check">✓</span><span id="toastText">设置已保存</span></div>
+  <script src="app.js"></script>
+</body>
+</html>

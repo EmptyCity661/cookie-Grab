@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: ""
+title: CookieGrabber 单进程桌面抓取工具
+scope:
+    - .gitignore
+    - build.bat
+    - make_icon.py
+    - res/
+    - src/
+    - test/
+source_files: []
+depends_on: []
+related_to: []

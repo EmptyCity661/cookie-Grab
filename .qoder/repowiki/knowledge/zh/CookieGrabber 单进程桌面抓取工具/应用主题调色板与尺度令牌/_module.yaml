@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: theme
+title: 应用主题调色板与尺度令牌
+scope:
+    - src/theme.cpp
+    - src/theme.h
+source_files: []
+depends_on: []
+related_to: []
