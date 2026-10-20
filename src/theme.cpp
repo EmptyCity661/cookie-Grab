@@ -107,10 +107,16 @@ std::string theme::StartPageCss() {
     css += "  --text-3:" + Hex(p.text3) + ";\n";
     css += "  --accent:" + Hex(p.accent) + ";\n";
     css += "  --accent-fill:" + Hex(p.accentFill) + ";\n";
+    css += "  --accent-hover:" + Hex(p.accentHover) + ";\n";
+    css += "  --accent-active:" + Hex(p.accentActive) + ";\n";
     css += "  --accent-tint:" + Hex(p.accentTint) + ";\n";
     css += "  --accent-text:" + Hex(p.accentText) + ";\n";
     css += "  --on-accent:" + Hex(p.onAccent) + ";\n";
     css += "  --danger:" + Hex(p.danger) + ";\n";
+    css += "  --hover:" + Hex(p.hover) + ";\n";
+    css += "  --pressed:" + Hex(p.pressed) + ";\n";
+    css += "  --field-bg:" + Hex(p.fieldBg) + ";\n";
+    css += "  --focus-ring:" + Hex(p.focusRing) + ";\n";
     css += "  --radius-card:" + std::to_string(scale::RadiusCard) + "px;\n";
     css += "  --radius-control:" + std::to_string(scale::RadiusControl) + "px;\n";
     css += "}\n";

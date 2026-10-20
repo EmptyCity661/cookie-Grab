@@ -2,6 +2,8 @@
 #include "app.h"
 #include "util.h"
 #include "theme.h"
+#include "webtoolbar.h"
+#include "json.h"
 #include <commctrl.h>
 #include <shellapi.h>
 #include <dwmapi.h>
@@ -25,6 +27,8 @@ static const int TIMER_LOGIN_POLL = 1;
 static const int TIMER_SHOW_FALLBACK = 4;
 // WebView2 就绪（由 WebViewHost 回调投递，延迟到回调栈之外再处理）
 static const UINT WM_APP_WEBVIEW_READY = WM_APP + 1;
+// HTML 工具栏的控制器就绪（方案 A 原型）
+static const UINT WM_APP_TB_READY = WM_APP + 2;
 
 static inline int PtX(LPARAM lp) { return (int)(short)LOWORD(lp); }
 static inline int PtY(LPARAM lp) { return (int)(short)HIWORD(lp); }
@@ -156,8 +160,8 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
         bool realPage = !url.empty() &&
             (util::StartsWithI(url, L"http://") || util::StartsWithI(url, L"https://") || util::StartsWithI(url, L"file://"));
         if (realPage) {
-            SetWindowTextW(urlCombo_, url.c_str());
             caption_ = CaptureManager::HostFromUrl(url);
+            UpdateToolbarAddress(url);
         } else {
             caption_.clear();
         }
@@ -170,6 +174,9 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
         if (main_) PostMessageW(main_, WM_APP_WEBVIEW_READY, 0, 0);
     });
     webview_.Create(webHost_, userData);
+    
+    // 第二个 WebView 承载 HTML 工具栏（共用同一用户目录/加载器）
+    InitHtmlToolbar();
 
     capture_.Init(&webview_, &settings_, &logger_,
         [this](const std::wstring& t) { OnCaptureStatus(t); },
@@ -188,11 +195,6 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
 int App::Run() {
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0)) {
-        // 地址框回车打开（避免子类化带来的运行时冲突）
-        if (msg.message == WM_KEYDOWN && msg.wParam == VK_RETURN) {
-            HWND f = GetFocus();
-            if (f && (f == urlCombo_ || IsChild(urlCombo_, f))) { OpenUrl(); continue; }
-        }
         // 输入方式判定：所有按键消息都先经过本循环（含发往子控件的），
         // 因此鼠标按下即可收起焦点提示，键盘导航再重新显示
         if (msg.message == WM_LBUTTONDOWN || msg.message == WM_RBUTTONDOWN || msg.message == WM_MBUTTONDOWN) {
@@ -241,6 +243,7 @@ void App::FreeMemBuffer() {
 }
 
 void App::ShutdownWebView() {
+    toolbarWv_.Destroy();   // 先销毁工具栏 WebView（共享加载器按引用计数归还）
     webview_.Destroy();
 }
 
@@ -280,14 +283,13 @@ void App::BuildFonts() {
 }
 
 void App::ApplyFonts() {
-    HWND kids[] = { navBrowser_, navSettings_, navHelp_, urlCombo_, btnOpen_, btnRefresh_, btnCapture_,
-        btnCaptureTkn_, presetCombo_, loginUrlEdit_, logFileEdit_, btnSave_, btnClear_, btnOpenLog_,
-        chkAuto_, chkClip_, chkHist_, chkFirst_, radStr_, radJson_, radBoth_ };
+    HWND kids[] = { navBrowser_, navSettings_, navHelp_, presetCombo_, loginUrlEdit_, logFileEdit_,
+        btnSave_, btnClear_, btnOpenLog_, chkAuto_, chkClip_, chkHist_, chkFirst_, radStr_, radJson_, radBoth_ };
     for (HWND c : kids) {
         if (!c) continue;
         HFONT f = fBody_;
         int id = GetDlgCtrlID(c);
-        if (id == ID_BTN_OPEN || id == ID_BTN_CAPTURE || id == ID_BTN_CAPTURE_TKN || id == ID_BTN_SAVE) f = fBtn_;
+        if (id == ID_BTN_SAVE) f = fBtn_;
         SendMessageW(c, WM_SETFONT, (WPARAM)f, TRUE);
     }
 }
@@ -324,18 +326,12 @@ void App::CreateControls() {
     navHelp_ = CreateWindowW(L"BUTTON", L"说明", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
         0, 0, 10, 10, main_, (HMENU)ID_NAV_HELP, inst_, nullptr);
 
-    // 浏览器页：地址 + 打开 + 刷新 + 两个独立抓取按钮（Cookie / Token 互不影响）
-    urlCombo_ = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWN | WS_VSCROLL,
-        0, 0, 10, 10, main_, (HMENU)ID_URL, inst_, nullptr);
-    btnOpen_ = CreateWindowW(L"BUTTON", L"打开", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-        0, 0, 10, 10, main_, (HMENU)ID_BTN_OPEN, inst_, nullptr);
-    btnRefresh_ = CreateWindowW(L"BUTTON", L"刷新", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-        0, 0, 10, 10, main_, (HMENU)ID_BTN_REFRESH, inst_, nullptr);
-    btnCapture_ = CreateWindowW(L"BUTTON", L"立即抓取Cookie", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-        0, 0, 10, 10, main_, (HMENU)ID_BTN_CAPTURE, inst_, nullptr);
-    btnCaptureTkn_ = CreateWindowW(L"BUTTON", L"立即抓取Token", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-        0, 0, 10, 10, main_, (HMENU)ID_BTN_CAPTURE_TKN, inst_, nullptr);
+    // 浏览器页工具栏改由 HTML 渲染（tbHost_ + 第二个 WebView），不再创建原生地址框/按钮
     webHost_ = CreateWindowExW(0, kHostClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
+        0, 0, 10, 10, main_, nullptr, inst_, nullptr);
+    // HTML 工具栏宿主（方案 A 原型）：与 webHost_ 同类，创建后置为不可见，
+    // 由 SwitchPage/Layout 在浏览器页控制显隐
+    tbHost_ = CreateWindowExW(0, kHostClass, L"", WS_CHILD | WS_CLIPCHILDREN,
         0, 0, 10, 10, main_, nullptr, inst_, nullptr);
 
     // 设置页（2.0 表单）：预设下拉 / 登录网址 / 日志文件
@@ -458,56 +454,14 @@ void App::Layout() {
     if (contentW < S(80)) contentW = S(80);
 
     if (page_ == 0) {
-        // 工具栏卡片：宽窗口单行排布；窄窗口自动换两行（输入行 + 按钮行）
-        int pad = S(14);
-        int iconZone = S(40); // 左侧放大镜图标区
-        int btnH = S(38);
-        int openW = S(92), refreshW = S(76), capW = S(140), capTW = S(140);
-        int btnGap = S(10);
-        int rowBtnsW = openW + refreshW + capW + capTW + btnGap * 3; // 单行按钮总宽
+        // 工具栏由 HTML/CSS 渲染（tbHost_）：卡片高度按宽度分三档，控件换行交给 CSS flex-wrap
         int cardW = contentW;
-        // 单行所需宽度：图标区 + 地址框(最小 140) + 按钮组 + padding
-        int oneRowNeed = iconZone + pad + S(140) + btnGap + rowBtnsW + pad;
-        bool twoRow = cardW < oneRowNeed;
-        int tbH = twoRow ? S(112) : S(62);
-        toolbarCard_ = { contentX, contentY, contentX + cardW, contentY + tbH };
-
-        if (!twoRow) {
-            // 单行：放大镜 + 地址框 + 打开/刷新/抓取/清除
-            int comboX = toolbarCard_.left + iconZone;
-            int comboW = (toolbarCard_.right - pad) - comboX - btnGap - rowBtnsW;
-            int comboMax = S(560); // 搜索栏最大宽度，与整体界面协调
-            if (comboW > comboMax) comboW = comboMax;
-            if (comboW < S(140)) comboW = S(140);
-            int editY = toolbarCard_.top + (tbH - S(28)) / 2 - S(1);
-            MoveWindow(urlCombo_, comboX, editY, comboW, S(260), TRUE);
-            int bx = toolbarCard_.right - pad - rowBtnsW;
-            int by = toolbarCard_.top + (tbH - btnH) / 2;
-            MoveWindow(btnOpen_, bx, by, openW, btnH, TRUE); bx += openW + btnGap;
-            MoveWindow(btnRefresh_, bx, by, refreshW, btnH, TRUE); bx += refreshW + btnGap;
-            MoveWindow(btnCapture_, bx, by, capW, btnH, TRUE); bx += capW + btnGap;
-            MoveWindow(btnCaptureTkn_, bx, by, capTW, btnH, TRUE);
-        } else {
-            // 两行：第一行 放大镜 + 地址框 + 打开；第二行 刷新/抓取 Cookie/清除（等宽分布）
-            int row1H = S(60);
-            int comboX = toolbarCard_.left + iconZone;
-            int comboW = (toolbarCard_.right - pad) - comboX - S(10) - openW;
-            if (comboW < S(140)) comboW = S(140);
-            int editY = toolbarCard_.top + (row1H - S(28)) / 2 - S(1);
-            MoveWindow(urlCombo_, comboX, editY, comboW, S(260), TRUE);
-            MoveWindow(btnOpen_, toolbarCard_.right - pad - openW,
-                toolbarCard_.top + (row1H - btnH) / 2, openW, btnH, TRUE);
-            // 第二行三个按钮等宽：刷新 / 抓取Cookie / 抓取Token
-            int row2Y = toolbarCard_.top + row1H + S(6);
-            int row2BtnH = S(36);
-            int avail = (toolbarCard_.right - pad) - (toolbarCard_.left + pad);
-            int gap2 = S(8);
-            int bw2 = (avail - gap2 * 2) / 3;
-            int bx2 = toolbarCard_.left + pad;
-            MoveWindow(btnRefresh_, bx2, row2Y, bw2, row2BtnH, TRUE); bx2 += bw2 + gap2;
-            MoveWindow(btnCapture_, bx2, row2Y, bw2, row2BtnH, TRUE); bx2 += bw2 + gap2;
-            MoveWindow(btnCaptureTkn_, bx2, row2Y, avail - (bx2 - toolbarCard_.left - pad), row2BtnH, TRUE);
-        }
+        int tbH = (cardW >= S(820)) ? S(64) : (cardW >= S(600) ? S(104) : S(150));
+        // 外扩一圈画布底色（与 body padding 12px 逻辑像素对齐），圆角卡片与柔和投影由 HTML 绘制
+        int M = S(12);
+        int hostW = cardW + 2 * M, hostH = tbH + 2 * M;
+        MoveWindow(tbHost_, contentX - M, contentY - M, hostW, hostH, TRUE);
+        if (toolbarWebReady_) toolbarWv_.Resize(0, 0, hostW, hostH);
 
         // Web 卡片
         int webY = contentY + tbH + S(12);
@@ -584,11 +538,12 @@ void App::Layout() {
 void App::SwitchPage(int page) {
     page_ = page;
     settingsScroll_ = 0;
-    HWND browserKids[] = { urlCombo_, btnOpen_, btnRefresh_, btnCapture_, btnCaptureTkn_, webHost_ };
+    HWND browserKids[] = { webHost_ };
     for (HWND c : browserKids) {
         ShowWindow(c, page_ == 0 ? SW_SHOW : SW_HIDE);
         if (page_ != 0) SetWindowRgn(c, nullptr, FALSE);
     }
+    if (tbHost_) ShowWindow(tbHost_, page_ == 0 ? SW_SHOW : SW_HIDE);
     HWND settingsKids[] = { presetCombo_, loginUrlEdit_, logFileEdit_,
         chkAuto_, chkClip_, chkHist_, chkFirst_, radStr_, radJson_, radBoth_,
         btnSave_, btnClear_, btnOpenLog_ };
@@ -602,14 +557,6 @@ void App::SwitchPage(int page) {
     InvalidateRect(navSettings_, nullptr, FALSE);
     InvalidateRect(navHelp_, nullptr, FALSE);
     InvalidateRect(main_, nullptr, FALSE);
-}
-
-void App::OpenUrl() {
-    wchar_t buf[2048] = {};
-    GetWindowTextW(urlCombo_, buf, 2048);
-    std::wstring url = util::Trim(buf);
-    if (url.empty()) return;
-    OpenUrlDirect(url);
 }
 
 void App::OpenUrlDirect(const std::wstring& urlIn) {
@@ -666,7 +613,7 @@ void App::ClearLoginState() {
     // 5) 界面状态同步为未登录
     capture_.ResetState();
     caption_.clear();
-    SetWindowTextW(urlCombo_, L"");
+    UpdateToolbarAddress(L"");
     if (recreated) {
         ShowStartPage();
         if (dirGone) {
@@ -688,10 +635,8 @@ void App::RefreshPresetList() {
         SendMessageW(presetCombo_, CB_ADDSTRING, 0, (LPARAM)p.name.c_str());
     SendMessageW(presetCombo_, CB_SETCURSEL, 0, 0);
     SetWindowTextW(loginUrlEdit_, L"");
-    SendMessageW(urlCombo_, CB_RESETCONTENT, 0, 0);
-    for (auto& p : settings_.presets) {
-        SendMessageW(urlCombo_, CB_ADDSTRING, 0, (LPARAM)p.url.c_str());
-    }
+    // HTML 工具栏：就绪后重渲染，同步预设下拉与地址候选
+    if (toolbarWebReady_) ShowToolbarHtml();
 }
 
 void App::OnPresetComboSel() {
@@ -870,6 +815,63 @@ void App::ShowStartPage() {
     webview_.NavigateToString(util::Utf8ToWide(html));
 }
 
+// ==================== HTML 工具栏（方案 A 原型）====================
+void App::InitHtmlToolbar() {
+    if (!tbHost_) return;
+    toolbarWv_.SetMessageHandler([this](const std::string& json) { OnToolbarMessage(json); });
+    // 就绪通知同样投递回主窗口过程处理，避免在 WebView2 回调栈内直接导航
+    toolbarWv_.SetReadyHandler([this]() {
+        if (main_) PostMessageW(main_, WM_APP_TB_READY, 0, 0);
+    });
+    std::wstring userData = util::LocalAppDir() + L"\\userdata";  // 与主 WebView 共用（加载器已引用计数共享）
+    toolbarWv_.Create(tbHost_, userData);
+}
+
+void App::OnHtmlToolbarReady() {
+    toolbarWebReady_ = true;
+    ShowToolbarHtml();
+    Layout();
+}
+
+void App::ShowToolbarHtml() {
+    std::vector<webtoolbar::Preset> presets;
+    presets.reserve(settings_.presets.size());
+    for (auto& p : settings_.presets) presets.push_back({ p.name, p.url });
+    std::wstring addr = startPageActive_ ? std::wstring() : webview_.CurrentUrl();
+    std::string html = webtoolbar::Build(presets, addr);
+    toolbarWv_.NavigateToString(util::Utf8ToWide(html));
+}
+
+void App::OnToolbarMessage(const std::string& json) {
+    // {"tb":"open","url":"..."} / {"tb":"refresh"} / {"tb":"capcookie","re":"..."} /
+    // {"tb":"captoken","re":"..."} / {"tb":"regex","re":"..."}
+    auto v = mjson::Parse(json);
+    if (!v || v->type != mjson::Value::Object) return;
+    std::string tb = v->GetStr("tb");
+    // 正则框（Cookie 名筛选）：任何携带 re 字段的消息都先同步到抓取后端
+    if (v->Has("re")) {
+        capture_.SetCookieFilter(util::Utf8ToWide(v->GetStr("re")));
+    }
+    if (tb == "open") {
+        OpenUrlDirect(util::Utf8ToWide(v->GetStr("url")));
+    } else if (tb == "refresh") {
+        RefreshPage();
+    } else if (tb == "capcookie") {
+        CaptureNow(1);
+    } else if (tb == "captoken") {
+        CaptureNow(2);
+    }
+    // tb == "regex"：仅更新筛选，不触发抓取
+}
+
+void App::UpdateToolbarAddress(const std::wstring& url) {
+    if (!toolbarWebReady_) return;
+    // 经 mjson::Escape 转义后嵌入 JS 双引号串（兼容 \" \\ \u 序列）
+    std::string esc = mjson::Escape(util::WideToUtf8(url));
+    std::wstring js = L"if(window.__cgSetAddress)__cgSetAddress(\"" + util::Utf8ToWide(esc) + L"\");";
+    toolbarWv_.ExecuteScript(js);
+}
+
 // ==================== 自绘控件 ====================
 static bool NavSelected(int id, int page) {
     return (id == ID_NAV_BROWSER && page == 0) || (id == ID_NAV_SETTINGS && page == 1) ||
@@ -916,13 +918,10 @@ static void DrawModernButton(const DRAWITEMSTRUCT* dis, App* app) {
     COLORREF fill = CLR_NONE, border = CLR_NONE, text = pal.text;
     if (disabled) {
         fill = pal.track; text = pal.text3;
-    } else if (id == ID_BTN_OPEN) {
-        fill = press ? pal.accentActive : (hot ? pal.accentHover : pal.accentFill);
-        text = pal.onAccent;
     } else if (id == ID_BTN_SAVE) {
         fill = press ? pal.accentActive : (hot ? pal.accentHover : pal.accentFill);
         text = pal.onAccent;
-    } else if (id == ID_BTN_CAPTURE || id == ID_BTN_CAPTURE_TKN || id == ID_BTN_REFRESH || id == ID_BTN_OPENLOG) {
+    } else if (id == ID_BTN_OPENLOG) {
         fill = press ? pal.pressed : pal.surface;
         border = pal.border;
     } else if (id == ID_BTN_CLEAR) {
@@ -943,10 +942,9 @@ static void DrawModernButton(const DRAWITEMSTRUCT* dis, App* app) {
     if (fill != CLR_NONE || border != CLR_NONE) FillRoundRect(dc, rc, r, fill, border);
     wchar_t t[64] = {};
     GetWindowTextW(dis->hwndItem, t, 64);
-    // 图标（刷新 / 清除登录状态），图标在左、文字在右，整体居中
+    // 图标（清除登录状态），图标在左、文字在右，整体居中
     const wchar_t* glyph = nullptr;
-    if (id == ID_BTN_REFRESH) glyph = L"\uE149";
-    else if (id == ID_BTN_CLEAR) glyph = L"\uE107";
+    if (id == ID_BTN_CLEAR) glyph = L"\uE107";
     int iconSize = app->S(16), gap = app->S(6);
     if (glyph && t[0]) {
         SelectObject(dc, app->FontBtn());
@@ -1186,23 +1184,7 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
     }
 
     if (app->Page() == 0) {
-        // 工具栏卡片
-        FillRoundRect(dc, app->toolbarCard_, app->S(10), pal.surface, pal.border);
-        // 搜索图标（放大镜）绘制在地址框左侧
-        {
-            RECT& tb = app->toolbarCard_;
-            int gcx = tb.left + app->S(26);
-            int gcy = (tb.top + tb.bottom) / 2;
-            int gr = app->S(6);
-            HPEN pen = CreatePen(PS_SOLID, app->S(2), pal.text3);
-            HGDIOBJ op = SelectObject(dc, pen);
-            HGDIOBJ ob = SelectObject(dc, GetStockObject(NULL_BRUSH));
-            Ellipse(dc, gcx - gr, gcy - gr, gcx + gr, gcy + gr);
-            MoveToEx(dc, gcx + gr - app->S(1), gcy + gr - app->S(1), nullptr);
-            LineTo(dc, gcx + gr + app->S(4), gcy + gr + app->S(4));
-            SelectObject(dc, ob); SelectObject(dc, op); DeleteObject(pen);
-        }
-        // Web 卡片
+        // 工具栏卡片由 HTML 工具栏（WebView2）自行绘制，主窗口仅保留 Web 卡片底
         FillRoundRect(dc, app->webCard_, app->S(10), pal.surface, pal.border);
     } else if (app->Page() == 1) {
         // 设置页：单张大表单卡片（2.0 结构）
@@ -1457,8 +1439,7 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (under && !IsWindowEnabled(under)) under = nullptr;
         int cid = under ? GetDlgCtrlID(under) : -1;
         bool trackable = cid == ID_NAV_BROWSER || cid == ID_NAV_SETTINGS || cid == ID_NAV_HELP ||
-            cid == ID_BTN_OPEN || cid == ID_BTN_REFRESH || cid == ID_BTN_CAPTURE ||
-            cid == ID_BTN_CAPTURE_TKN || cid == ID_BTN_CLEAR || cid == ID_BTN_SAVE || cid == ID_BTN_OPENLOG ||
+            cid == ID_BTN_CLEAR || cid == ID_BTN_SAVE || cid == ID_BTN_OPENLOG ||
             cid == ID_CHK_AUTO || cid == ID_CHK_CLIP || cid == ID_CHK_HIST ||
             cid == ID_CHK_FIRST || cid == ID_RAD_STR || cid == ID_RAD_JSON || cid == ID_RAD_BOTH;
         HWND newHover = trackable ? under : nullptr;
@@ -1538,8 +1519,7 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         auto* dis = (DRAWITEMSTRUCT*)lp;
         int id = dis->CtlID;
         if (id == ID_NAV_BROWSER || id == ID_NAV_SETTINGS || id == ID_NAV_HELP) { DrawNavButton(dis, app); return TRUE; }
-        if (id == ID_BTN_OPEN || id == ID_BTN_REFRESH || id == ID_BTN_CAPTURE || id == ID_BTN_CAPTURE_TKN ||
-            id == ID_BTN_CLEAR || id == ID_BTN_SAVE || id == ID_BTN_OPENLOG) {
+        if (id == ID_BTN_CLEAR || id == ID_BTN_SAVE || id == ID_BTN_OPENLOG) {
             DrawModernButton(dis, app); return TRUE;
         }
         if (id == ID_CHK_AUTO || id == ID_CHK_CLIP || id == ID_CHK_HIST || id == ID_CHK_FIRST) {
@@ -1567,10 +1547,6 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case ID_NAV_BROWSER: if (code == BN_CLICKED) app->SwitchPage(0); return 0;
         case ID_NAV_SETTINGS: if (code == BN_CLICKED) app->SwitchPage(1); return 0;
         case ID_NAV_HELP: if (code == BN_CLICKED) app->SwitchPage(2); return 0;
-        case ID_BTN_OPEN: app->OpenUrl(); return 0;
-        case ID_BTN_REFRESH: app->RefreshPage(); return 0;
-        case ID_BTN_CAPTURE: app->CaptureNow(1); return 0;      // 仅 Cookie
-        case ID_BTN_CAPTURE_TKN: app->CaptureNow(2); return 0;  // 仅 Token
         case ID_BTN_CLEAR: app->ClearLoginState(); return 0;
         case ID_BTN_SAVE: if (code == BN_CLICKED) app->SaveSettingsClicked(); return 0;
         case ID_BTN_OPENLOG: if (code == BN_CLICKED) app->OpenLogFolder(); return 0;
@@ -1609,6 +1585,9 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_APP_WEBVIEW_READY:
         app->OnWebViewReady();
+        return 0;
+    case WM_APP_TB_READY:
+        app->OnHtmlToolbarReady();
         return 0;
     case WM_TIMER:
         app->OnTimer((int)wp);

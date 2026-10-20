@@ -19,6 +19,7 @@ public:
     void OnNavigationCompleted(bool success);
     void PollTick();              // 定时轮询：Cookie 快照比对 + 首次打开检查
     void RequestCapture(bool manual, int mask = 3); // mask: 1=Cookie 2=Token 3=两者
+    void SetCookieFilter(const std::wstring& regex); // Cookie 名正则筛选（空=不筛选，写盘时应用）
     void FirePending();           // 防抖到期
     void FireDelayedStep();       // 预扫描等待到期
     void KillTimers();
@@ -33,6 +34,7 @@ public:
 private:
     void DoGetCookies();
     void OnCookies(std::vector<CookieItem> cookies);
+    std::vector<CookieItem> ApplyFilter(const std::vector<CookieItem>& in) const; // 按 cookieFilter_ 筛选
     void FinishCapture();        // 按掩码写日志并更新状态（Cookie/Token 独立）
     bool IsLoggedIn(const std::vector<CookieItem>& cookies) const;
     void SetStatus(const std::wstring& t);
@@ -49,6 +51,7 @@ private:
     std::wstring lastDomain_;
     std::wstring lastTime_;
     std::wstring currentHost_;
+    std::wstring cookieFilter_;   // Cookie 名正则（空串=全量写入）
     int lastCookieCount_ = 0;
     int maskNext_ = 0;              // 待写入掩码：1=Cookie 2=Token
 

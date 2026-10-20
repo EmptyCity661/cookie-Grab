@@ -2,6 +2,7 @@
 #include "util.h"
 #include "json.h"
 #include <algorithm>
+#include <regex>
 
 using namespace mjson;
 
@@ -142,6 +143,29 @@ void CaptureManager::RequestCapture(bool manual, int mask) {
     }
 }
 
+void CaptureManager::SetCookieFilter(const std::wstring& regex) {
+    cookieFilter_ = regex;   // 空串=不筛选；非空在写盘前按 Cookie 名正则筛选
+}
+
+std::vector<CookieItem> CaptureManager::ApplyFilter(const std::vector<CookieItem>& in) const {
+    if (cookieFilter_.empty()) return in;            // 无筛选：全量放行
+    std::wregex re;
+    try {
+        re.assign(cookieFilter_, std::regex_constants::icase);
+    } catch (const std::regex_error&) {
+        return in;   // 非法正则：保守起见全量放行（不因语法错误清空结果）
+    }
+    std::vector<CookieItem> out;
+    for (const auto& c : in) {
+        try {
+            if (std::regex_search(c.name, re)) out.push_back(c);   // 名称部分匹配即保留
+        } catch (const std::regex_error&) {
+            out.push_back(c);
+        }
+    }
+    return out;
+}
+
 void CaptureManager::FirePending() {
     stageDebounce_ = false;
     if (!wv_->IsReady()) return;
@@ -189,7 +213,7 @@ void CaptureManager::FinishCapture() {
     std::wstring domain = HostFromUrl(url);
     // 变更检测：含 Cookie（mask&1）时比较 Cookie 快照；仅 Token 时 lastCookies_ 已过时，只看 tokensDirty_
     bool changed;
-    std::string snap;
+    std::string snap;   // 原始（未筛选）快照：用于变更检测，与筛选无关，避免筛选造成轮每拟写
     if (mask & 1) {
         snap = LogWriter::CookieString(lastCookies_);
         std::string last = util::WideToUtf8(lastSnapshot_);
@@ -204,10 +228,15 @@ void CaptureManager::FinishCapture() {
     }
     manualNext_ = false;
 
+    // 写盘/剪贴板用筛选后的 Cookie 列表；原始快照仍用于下次变更检测
+    std::vector<CookieItem> outCookies = (mask & 1) ? ApplyFilter(lastCookies_) : lastCookies_;
+    std::string outSnap = (mask & 1) ? LogWriter::CookieString(outCookies) : std::string();
+    if (mask & 1) lastCookieCount_ = (int)outCookies.size();
+
     std::wstring err;
-    bool ok = logger_->Write(lastCookies_, tokens_, *settings_, domain, url, err, mask);
+    bool ok = logger_->Write(outCookies, tokens_, *settings_, domain, url, err, mask);
     if (mask & 1) {
-        lastSnapshot_ = util::Utf8ToWide(snap);   // 仅含 Cookie 时更新 Cookie 快照
+        lastSnapshot_ = util::Utf8ToWide(snap);   // 保存原始快照（未筛选）
     }
     lastDomain_ = domain;
     lastTime_ = util::NowLogTime();
@@ -219,7 +248,7 @@ void CaptureManager::FinishCapture() {
     }
     if (mask & 1) {
         if (settings_->clipboard) {
-            if (util::SetClipboardText(util::Utf8ToWide(snap), nullptr))
+            if (util::SetClipboardText(util::Utf8ToWide(outSnap), nullptr))
                 SetStatus(L"已抓取 Cookie 并复制到剪贴板");
             else
                 SetStatus(L"已抓取 Cookie（剪贴板复制失败）");

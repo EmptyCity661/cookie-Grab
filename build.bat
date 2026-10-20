@@ -25,7 +25,7 @@ windres --include-dir res --include-dir src res\app.rc -O coff -o res\app.res
 if errorlevel 1 exit /b 1
 
 echo [2/3] g++ compile
-g++ -std=c++17 -O2 -municode -mwindows -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -Wall -o CookieGrabber.exe src\main.cpp src\app.cpp src\theme.cpp src\ui.cpp src\webview.cpp src\capture.cpp src\logwriter.cpp src\settings.cpp src\util.cpp res\app.res -Iinclude -Isrc -lole32 -loleaut32 -luuid -lgdi32 -lcomctl32 -lshell32 -lcomdlg32 -ladvapi32 -ldwmapi -static -static-libgcc -static-libstdc++
+g++ -std=c++17 -O2 -municode -mwindows -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -Wall -o CookieGrabber.exe src\main.cpp src\app.cpp src\theme.cpp src\ui.cpp src\webview.cpp src\webtoolbar.cpp src\capture.cpp src\logwriter.cpp src\settings.cpp src\util.cpp res\app.res -Iinclude -Isrc -lole32 -loleaut32 -luuid -lgdi32 -lcomctl32 -lshell32 -lcomdlg32 -ladvapi32 -ldwmapi -static -static-libgcc -static-libstdc++
 if errorlevel 1 exit /b 1
 
 echo [3/3] done

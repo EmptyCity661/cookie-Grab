@@ -2,18 +2,8 @@
 #pragma once
 #define ID_NAV_BROWSER   1001
 #define ID_NAV_SETTINGS  1002
-#define ID_URL           1003
-#define ID_BTN_OPEN      1004
-#define ID_BTN_CAPTURE   1005
-#define ID_BTN_REFRESH   1006
 #define ID_BTN_CLEAR     1007
 #define ID_NAV_HELP      1008
-#define ID_BTN_CAPTURE_TKN 1009
-#define ID_PRESET_LIST   1010
-#define ID_BTN_FILL      1011
-#define ID_BTN_ADD       1012
-#define ID_BTN_EDIT      1013
-#define ID_BTN_DEL       1014
 #define ID_PRESET_COMBO  1015
 #define ID_LOGIN_URL     1016
 #define ID_LOG_FILE      1017

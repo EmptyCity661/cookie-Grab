@@ -22,8 +22,7 @@ public:
     void ShowMainWindow();                         // 首次显示主窗口（幂等）
 
     // ---------- 业务 ----------
-    void OpenUrl();                              // 从地址框取 URL 并打开
-    void OpenUrlDirect(const std::wstring& url); // 直接打开（起始页/预设）
+    void OpenUrlDirect(const std::wstring& url); // 直接打开（起始页/预设/HTML 工具栏）
     void CaptureNow(int mask);                   // mask: 1=仅Cookie 2=仅Token
     void RefreshPage();                          // 刷新：重新加载页面并更新界面状态
     void ClearLoginState();                      // 清除登录状态：删除凭证/会话并重置 UI
@@ -39,6 +38,13 @@ public:
     void KillCaptureTimers();
     void OnStartPageMessage(const std::wstring& msg); // 起始页按钮回调
     void ShowStartPage();
+
+    // ---------- HTML 工具栏（方案 A 原型）----------
+    void InitHtmlToolbar();                    // 创建第二个 WebView 宿主并接入消息通道
+    void ShowToolbarHtml();                    // 生成并导航到同源调色板的 HTML 工具栏
+    void OnToolbarMessage(const std::string& json); // HTML 工具栏动作回调
+    void UpdateToolbarAddress(const std::wstring& url); // 导航完成后同步地址框
+    void OnHtmlToolbarReady();                 // HTML 工具栏控制器就绪：生成内容并排版
 
     // ---------- 界面 ----------
     void SwitchPage(int page);
@@ -136,7 +142,7 @@ public:
     Settings& UiSettings() { return settings_; }
 
     // 布局矩形（PaintMain 使用）
-    RECT toolbarCard_, webCard_, statusLine_;
+    RECT webCard_, statusLine_;
     std::vector<RECT> cardRects_;
 
     HWND main_ = nullptr;
@@ -145,8 +151,8 @@ private:
     HINSTANCE inst_ = nullptr;
     // 控件
     HWND navBrowser_ = nullptr, navSettings_ = nullptr, navHelp_ = nullptr;
-    HWND urlCombo_ = nullptr, btnOpen_ = nullptr, btnRefresh_ = nullptr, btnCapture_ = nullptr;
-    HWND btnCaptureTkn_ = nullptr, webHost_ = nullptr;
+    HWND webHost_ = nullptr;
+    HWND tbHost_ = nullptr;                    // HTML 工具栏宿主子窗口（唯一工具栏）
     HWND presetCombo_ = nullptr, loginUrlEdit_ = nullptr, logFileEdit_ = nullptr;
     HWND btnSave_ = nullptr, btnOpenLog_ = nullptr;
     HWND chkAuto_ = nullptr, chkClip_ = nullptr, chkHist_ = nullptr, chkFirst_ = nullptr;
@@ -179,6 +185,7 @@ private:
     bool toggleOn_[4] = { true, true, true, true }; // 自动抓取/剪贴板/历史/首次打开
     int segSel_ = 0;                                // 日志格式 0=字符串 1=JSON 2=两种都写
     bool startPageActive_ = true;                   // 当前是否显示起始页
+    bool toolbarWebReady_ = false;                  // HTML 工具栏的控制器是否已就绪
     int webviewFailChecks_ = 0;                     // WebView2 就绪检测计数
     HANDLE singleInstance_ = nullptr;               // 单实例互斥体
     // 双缓冲缓存
@@ -187,6 +194,7 @@ private:
     int memW_ = 0, memH_ = 0;
     Settings settings_;
     WebViewHost webview_;
+    WebViewHost toolbarWv_;                    // 第二个 WebView：承载 HTML 工具栏（方案 A 原型）
     CaptureManager capture_;
     LogWriter logger_;
 };

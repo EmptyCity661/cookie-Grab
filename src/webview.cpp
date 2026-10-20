@@ -182,6 +182,14 @@ public:
 };
 
 // ---------------- 加载器加载 ----------------
+// 进程级共享的加载器 DLL：同一进程内多个 WebViewHost（如主浏览区 + HTML 工具栏）
+// 复用同一份映射，引用计数归零时才 FreeLibrary——否则一个实例销毁会把另一个
+// 仍在使用的 DLL 卸载，导致后续调用崩溃。
+static HMODULE  s_loader = nullptr;
+static std::wstring s_loaderPath;
+static bool     s_loaderFromTemp = false;
+static int      s_loaderRefs = 0;
+
 static HMODULE LoadLoaderDll(std::wstring& outPath, bool& fromTemp) {
     outPath.clear();
     fromTemp = false;
@@ -226,8 +234,12 @@ bool WebViewHost::Create(HWND parent, const std::wstring& userDataDir) {
     // 注意：重建（Recreate）时复用已加载的加载器，不可重复释放或覆盖写
     // ——该文件仍处于 LoadLibrary 映射中，覆盖写会失败
     if (!loader_) {
-        loader_ = LoadLoaderDll(loaderPath_, loaderFromTemp_);
+        if (!s_loader) s_loader = LoadLoaderDll(s_loaderPath, s_loaderFromTemp);
+        loader_ = s_loader;
+        loaderPath_ = s_loaderPath;        // 仅作记录，释放由进程级计数统一管理
+        loaderFromTemp_ = s_loaderFromTemp;
         if (!loader_) return false;
+        s_loaderRefs++;
     }
     auto fn = (FnCreateEnv)GetProcAddress(loader_, "CreateCoreWebView2EnvironmentWithOptions");
     if (!fn) return false;
@@ -244,10 +256,17 @@ void WebViewHost::Destroy() {
     if (cookieManager_) { cookieManager_->Release(); cookieManager_ = nullptr; }
     if (controller_) { controller_->Close(); controller_->Release(); controller_ = nullptr; }
     if (env_) { env_->Release(); env_ = nullptr; }
+    // 加载器按引用计数归还：最后一个实例销毁时才卸载并清理临时文件
     if (loader_) {
-        FreeLibrary(loader_);
         loader_ = nullptr;
-        if (loaderFromTemp_ && !loaderPath_.empty()) DeleteFileW(loaderPath_.c_str());
+        if (s_loaderRefs > 0) s_loaderRefs--;
+        if (s_loaderRefs == 0 && s_loader) {
+            FreeLibrary(s_loader);
+            if (s_loaderFromTemp && !s_loaderPath.empty()) DeleteFileW(s_loaderPath.c_str());
+            s_loader = nullptr;
+            s_loaderPath.clear();
+            s_loaderFromTemp = false;
+        }
     }
 }
 
