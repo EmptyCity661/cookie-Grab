@@ -38,7 +38,7 @@ source_files:
 - `presets` — `std::vector<Preset>`，每个 `Preset` 含 `name` 与 `url`
 
 ### 加载流程 (`LoadSettings`)
-1. 先调用 `DefaultSettings()` 填充默认值（包含微博、知乎、B站、GitHub 四个预设）。
+1. 先调用 `DefaultSettings()` 填充默认值（当前内置 8 个预设：百度网盘、阿里云盘、夸克网盘、天翼云盘、迅雷网盘、115 网盘、B站、GitHub，以主流网盘优先）。
 2. 尝试读取 `settings.json`；若文件不存在或读取失败，直接返回默认设置。
 3. 用 `mjson::Parse` 解析为 `Value::Object`，逐项读取布尔字段与字符串字段。
 4. `logFormat` 通过字符串映射回枚举（`"string"` / `"json"` / `"both"`）。
@@ -60,7 +60,8 @@ source_files:
 - **文件位置固定**：配置路径由 `SettingsFilePath()` 硬编码为 `%LOCALAPPDATA%\CookieGrabber\settings.json`，无命令行参数或环境变量覆盖机制。
 - **向后兼容**：`LoadSettings` 对未知字段忽略、对缺失字段使用默认值，新增字段时只需在结构体和读写逻辑中添加即可。
 - **原子写入**：`SaveSettings` 通过 `WriteFileAtomic` 写入，确保进程异常退出时不会留下半写文件。
-- **预设不可为空**：`presets` 数组中每个元素必须同时有 `name` 和 `url`，且 `url` 非空，否则该条目会被丢弃（见 `settings.cpp:40-44`）。
+- **预设不可为空**：`presets` 数组中每个元素必须同时有 `name` 和 `url`，且 `url` 非空，否则该条目会被丢弃（见 `settings.cpp:45-49`）。
+- **预设是“整体覆盖”而不是合并**：`LoadSettings` 一旦发现 `settings.json` 里有 `presets` 数组就会先 `s.presets.clear()` 再按文件内容重建（见 `settings.cpp:41-50`）。这意味着修改 `DefaultSettings()` 的内置预设**不会**影响已有 `settings.json` 的老用户；要同步调整预设，必须同时改写 `%LOCALAPPDATA%\CookieGrabber\settings.json`。
 - **日志格式白名单**：仅接受 `"string"` / `"json"` / `"both"` 三种字符串值，其他值回退为 `LogFormat::String`。
 - **无加密/鉴权**：`settings.json` 以明文形式存储在用户目录，不包含敏感信息（仅开关与站点预设）。
-- **无运行时热重载**：当前代码未暴露监听文件变更并重新加载的机制，修改配置后需重启应用生效。
+- **无运行时热重载**：外部手工编辑 `settings.json` 需重启应用才生效；而由设置页“保存设置”触发的变更会先更新内存中的 `settings_` 再落盘，因此界面提示“立即生效”。
