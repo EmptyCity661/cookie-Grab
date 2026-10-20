@@ -17,6 +17,9 @@ public:
     static App& Get() { static App inst; return inst; }
     bool Init(HINSTANCE hInst, const std::wstring& initialUrl = L"");
     int Run();
+    bool IsWebViewReady() const;                   // WebView2 控制器是否已就绪（决定过渡绘制）
+    void OnWebViewReady();                         // WebView2 就绪：结束启动过渡
+    void ShowMainWindow();                         // 首次显示主窗口（幂等）
 
     // ---------- 业务 ----------
     void OpenUrl();                              // 从地址框取 URL 并打开

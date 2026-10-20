@@ -13,6 +13,7 @@ public:
     using MessageFn = std::function<void(const std::string& jsonUtf8)>;
     using NavFn = std::function<void(bool success, const std::wstring& url)>;
     using CookiesFn = std::function<void(std::vector<CookieItem>)>;
+    using ReadyFn = std::function<void()>; // 控制器创建完成（Web 区域可绘制内容）
 
     ~WebViewHost() { Destroy(); }
 
@@ -32,6 +33,7 @@ public:
 
     void SetMessageHandler(MessageFn fn) { onMessage_ = std::move(fn); }
     void SetNavHandler(NavFn fn) { onNav_ = std::move(fn); }
+    void SetReadyHandler(ReadyFn fn) { onReady_ = std::move(fn); }
 
     // 注入的 Token 捕获 JS（页面文档创建时执行）
     static const wchar_t* TokenHookScript();
@@ -55,6 +57,7 @@ private:
     std::wstring userDataDir_;
     MessageFn onMessage_;
     NavFn onNav_;
+    ReadyFn onReady_;
     CookiesFn cookiesCb_;
     std::wstring pendingNav_;
     std::wstring pendingNavToString_;

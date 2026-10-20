@@ -6,7 +6,7 @@
 using namespace mjson;
 
 // 定时器 ID（由 App 分配）
-enum { TIMER_POLL = 1, TIMER_DEBOUNCE = 2, TIMER_PRESACN = 3 };
+enum { TIMER_POLL = 1, TIMER_DEBOUNCE = 2, TIMER_PRESCAN = 3 };
 static const int kPollMs = 1500;
 static const int kDebounceMs = 600;
 static const int kPrescanMs = 250;
@@ -134,7 +134,7 @@ void CaptureManager::PollTick() {
 
 void CaptureManager::RequestCapture(bool manual, int mask) {
     if (mask <= 0) mask = 3;
-    maskNext_ = mask;
+    maskNext_ |= mask;   // 合并而非覆盖：防抖窗口内多次请求时保留先到的抓取范围
     manualNext_ = manual;
     if (!stageDebounce_) {
         stageDebounce_ = true;
@@ -149,7 +149,7 @@ void CaptureManager::FirePending() {
         // 手动抓取（含 Token）：先主动扫一次存储，再按需拉 Cookie
         wv_->ExecuteScript(L"(window.__cgScanStorage && window.__cgScanStorage()) || 0");
         stagePrescan_ = true;
-        if (onSchedule_) onSchedule_(TIMER_PRESACN, kPrescanMs);
+        if (onSchedule_) onSchedule_(TIMER_PRESCAN, kPrescanMs);
     } else {
         DoGetCookies();
     }
@@ -187,10 +187,16 @@ void CaptureManager::FinishCapture() {
     if (!mask) return;
     std::wstring url = wv_->CurrentUrl();
     std::wstring domain = HostFromUrl(url);
-    std::string snap = LogWriter::CookieString(lastCookies_);
-    std::string last = util::WideToUtf8(lastSnapshot_);
-
-    bool changed = (snap != last) || tokensDirty_;
+    // 变更检测：含 Cookie（mask&1）时比较 Cookie 快照；仅 Token 时 lastCookies_ 已过时，只看 tokensDirty_
+    bool changed;
+    std::string snap;
+    if (mask & 1) {
+        snap = LogWriter::CookieString(lastCookies_);
+        std::string last = util::WideToUtf8(lastSnapshot_);
+        changed = (snap != last) || tokensDirty_;
+    } else {
+        changed = tokensDirty_;
+    }
     if (!changed && !manualNext_) {
         SetStatus(L"登录状态无变化");
         tokensDirty_ = false;
@@ -200,7 +206,9 @@ void CaptureManager::FinishCapture() {
 
     std::wstring err;
     bool ok = logger_->Write(lastCookies_, tokens_, *settings_, domain, url, err, mask);
-    lastSnapshot_ = util::Utf8ToWide(snap);
+    if (mask & 1) {
+        lastSnapshot_ = util::Utf8ToWide(snap);   // 仅含 Cookie 时更新 Cookie 快照
+    }
     lastDomain_ = domain;
     lastTime_ = util::NowLogTime();
     tokensDirty_ = false;

@@ -1,6 +1,7 @@
 // 应用主体：Win32 现代化无边框 GUI（响应式：宽/中/窄三档）
 #include "app.h"
 #include "util.h"
+#include "theme.h"
 #include <commctrl.h>
 #include <shellapi.h>
 #include <dwmapi.h>
@@ -11,31 +12,19 @@
 #pragma comment(lib, "dwmapi.lib")
 
 // ==================== 主题 ====================
-namespace theme {
-    // 浅色精致风格 · 青绿（Emerald）主色 · 低饱和 Slate 中性色
-    static const COLORREF APP_BG      = RGB(0xF4, 0xF6, 0xF9);  // 内容/应用底色（柔和冷灰）
-    static const COLORREF SURFACE     = RGB(0xFF, 0xFF, 0xFF);  // 卡片/控件/侧栏/标题栏
-    static const COLORREF SIDEBAR_BG  = RGB(0xFF, 0xFF, 0xFF);
-    static const COLORREF BORDER      = RGB(0xE6, 0xEA, 0xF0);  // 边框线
-    static const COLORREF TRACK       = RGB(0xF1, 0xF5, 0xF9);  // 轨道/托盘浅灰
-    static const COLORREF TEXT        = RGB(0x0F, 0x17, 0x2A);  // 主文字 Slate 900
-    static const COLORREF TEXT2       = RGB(0x64, 0x74, 0x8B);  // 次文字 Slate 500
-    static const COLORREF TEXT3       = RGB(0x94, 0xA3, 0xB8);  // 浅文字 Slate 400
-    static const COLORREF ACCENT      = RGB(0x10, 0xB9, 0x81);  // 主色 Emerald 500
-    static const COLORREF ACCENT_HOV  = RGB(0x0E, 0xA3, 0x72);  // Emerald 600
-    static const COLORREF ACCENT_DARK = RGB(0x05, 0x96, 0x69);  // Emerald 700
-    static const COLORREF ACCENT_TINT = RGB(0xD1, 0xFA, 0xE5);  // Emerald 100（选中底）
-    static const COLORREF HOVER       = RGB(0xF1, 0xF5, 0xF9);  // Slate 100（悬停底）
-    static const COLORREF DANGER      = RGB(0xEF, 0x44, 0x44);  // Red 500
-    static const COLORREF DANGER_TINT = RGB(0xFE, 0xF2, 0xF2);  // Red 50
-    static const COLORREF SUCCESS     = RGB(0x16, 0xA3, 0x4A);  // Green 600
-    static const COLORREF TITLE_INACT = RGB(0xFA, 0xFB, 0xFC);
-    static const COLORREF WHITE       = RGB(0xFF, 0xFF, 0xFF);
-}
+// 颜色一律取自 theme.h 的 Palette（theme::Current()），本文件不再私设调色板：
+// 此前原生绘制用本地硬编码颜色、起始页另用一套靛蓝，导致风格割裂。
 
 static const wchar_t kMainClass[] = L"CGMainWndClass";
 static const wchar_t kHostClass[] = L"CGWebHostClass";
 static App* g_app = nullptr;
+
+// ---------------- 定时器 / 自定义消息 ----------------
+// 定时器 ID：1=登录态轮询，2/3=抓取延时步骤（见 capture.cpp），4=启动显示兜底
+static const int TIMER_LOGIN_POLL = 1;
+static const int TIMER_SHOW_FALLBACK = 4;
+// WebView2 就绪（由 WebViewHost 回调投递，延迟到回调栈之外再处理）
+static const UINT WM_APP_WEBVIEW_READY = WM_APP + 1;
 
 static inline int PtX(LPARAM lp) { return (int)(short)LOWORD(lp); }
 static inline int PtY(LPARAM lp) { return (int)(short)HIWORD(lp); }
@@ -45,7 +34,7 @@ static LRESULT CALLBACK MainWndProc(HWND, UINT, WPARAM, LPARAM);
 static LRESULT CALLBACK HostWndProc(HWND, UINT, WPARAM, LPARAM);
 
 // ---------------- 绘制辅助 ----------------
-#define CLR_NONE ((COLORREF)0xFFFFFFFF)
+// CLR_NONE 统一由 theme.h 定义
 
 static void FillRoundRect(HDC dc, RECT rc, int r, COLORREF fill, COLORREF border, int borderW = 1) {
     if (r < 1) r = 1;
@@ -70,9 +59,13 @@ static void TextOut2(HDC dc, const std::wstring& t, RECT rc, HFONT font, COLORRE
 }
 
 static void DrawCookieDot(HDC dc, int cx, int cy, int r, COLORREF c) {
+    // 同色画笔：不设画笔时 Ellipse 会用默认 BLACK_PEN 描一圈黑边（与 draw::Dot 同实现）
     HBRUSH br = CreateSolidBrush(c);
+    HPEN pen = CreatePen(PS_SOLID, 1, c);
     HGDIOBJ ob = SelectObject(dc, br);
+    HGDIOBJ op = SelectObject(dc, pen);
     Ellipse(dc, cx - r, cy - r, cx + r, cy + r);
+    SelectObject(dc, op); DeleteObject(pen);
     SelectObject(dc, ob); DeleteObject(br);
 }
 
@@ -121,6 +114,10 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
     wc.hIconSm = nullptr;
     RegisterClassExW(&wc);
 
+    // 解析主题：必须先于窗口创建（WM_CREATE 即用调色板建画刷）与起始页生成，
+    // 否则 theme::Current() 返回未初始化的全零调色板（纯黑）
+    theme::Resolve(theme::DetectDarkMode());
+
     settings_ = LoadSettings();
     logger_.Init();
 
@@ -134,7 +131,7 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
     int cornerPref = 2;                                     // DWMWCP_ROUND
     DwmSetWindowAttribute(main_, attrCorner, &cornerPref, sizeof(cornerPref));
     DWMWINDOWATTRIBUTE attrBorder = (DWMWINDOWATTRIBUTE)34; // DWMWA_BORDER_COLOR
-    COLORREF borderClr = theme::BORDER;
+    COLORREF borderClr = theme::Current().border;
     DwmSetWindowAttribute(main_, attrBorder, &borderClr, sizeof(borderClr));
 
     // 窗口居中
@@ -168,6 +165,10 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
         UpdateStatus();
     });
     std::wstring userData = util::LocalAppDir() + L"\\userdata";
+    // 就绪通知投递给主窗口过程：不在 WebView2 回调栈内直接操作窗口（避免重入）
+    webview_.SetReadyHandler([this]() {
+        if (main_) PostMessageW(main_, WM_APP_WEBVIEW_READY, 0, 0);
+    });
     webview_.Create(webHost_, userData);
 
     capture_.Init(&webview_, &settings_, &logger_,
@@ -177,8 +178,10 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
     if (!initialUrl_.empty()) webview_.Navigate(initialUrl_);
     else ShowStartPage();
 
-    ShowWindow(main_, SW_SHOW);
-    UpdateWindow(main_);
+    // 启动不立即显示窗口：WebView2 是异步初始化，先显示会让用户盯着一块没有内容的
+    // Web 区域（宿主子窗口此时没有任何子窗口可绘制）。改由就绪回调（OnWebViewReady）
+    // 显示；超时兜底保证 WebView2 缺失/初始化失败时界面仍会出现，且能看到过渡提示。
+    SetTimer(main_, TIMER_SHOW_FALLBACK, 500, nullptr);
     return true;
 }
 
@@ -225,6 +228,21 @@ void App::ShutdownWebView() {
     webview_.Destroy();
 }
 
+bool App::IsWebViewReady() const { return webview_.IsReady(); }
+
+void App::ShowMainWindow() {
+    if (!main_ || IsWindowVisible(main_)) return;
+    ShowWindow(main_, SW_SHOW);
+    // 显示后立即完成首帧（含子窗口）绘制：否则窗口出现瞬间会先闪一帧空白
+    RedrawWindow(main_, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+}
+
+void App::OnWebViewReady() {
+    // 控制器已就绪，Web 卡片区域已有真实内容：取消兜底定时器并结束启动过渡
+    KillTimer(main_, TIMER_SHOW_FALLBACK);
+    ShowMainWindow();
+}
+
 void App::BuildFonts() {
     auto mk = [&](int px, int weight, const wchar_t* face) {
         LOGFONTW lf = {};
@@ -259,15 +277,16 @@ void App::ApplyFonts() {
 }
 
 void App::BuildBrushes() {
-    brAppBg_      = CreateSolidBrush(theme::APP_BG);
-    brSurface_    = CreateSolidBrush(theme::SURFACE);
-    brSidebar_    = CreateSolidBrush(theme::SIDEBAR_BG);
-    brBorder_     = CreateSolidBrush(theme::BORDER);
-    brTitleInact_ = CreateSolidBrush(theme::TITLE_INACT);
-    brAccentTint_ = CreateSolidBrush(theme::ACCENT_TINT);
-    brHover_      = CreateSolidBrush(theme::HOVER);
-    brDangerTint_ = CreateSolidBrush(theme::DANGER_TINT);
-    penBorder_    = CreatePen(PS_SOLID, 1, theme::BORDER);
+    const Palette& pal = theme::Current();
+    brAppBg_      = CreateSolidBrush(pal.canvas);
+    brSurface_    = CreateSolidBrush(pal.surface);
+    brSidebar_    = CreateSolidBrush(pal.surface);      // 2.0 结构无侧栏，与卡片同底
+    brBorder_     = CreateSolidBrush(pal.border);
+    brTitleInact_ = CreateSolidBrush(pal.surfaceAlt);  // 非激活标题栏：次级底色
+    brAccentTint_ = CreateSolidBrush(pal.accentTint);
+    brHover_      = CreateSolidBrush(pal.hover);
+    brDangerTint_ = CreateSolidBrush(pal.dangerTint);
+    penBorder_    = CreatePen(PS_SOLID, 1, pal.border);
 }
 
 void App::ReleaseUiResources() {
@@ -719,7 +738,7 @@ void App::UpdateStatus() {
 
 void App::OnTimer(int id) {
     switch (id) {
-    case 1:
+    case TIMER_LOGIN_POLL:
         capture_.PollTick();
         // WebView2 就绪检测：连续多次未就绪则提示（异步创建失败时用户无感知）
         if (!webview_.IsReady() && webviewFailChecks_ < 8) {
@@ -731,6 +750,12 @@ void App::OnTimer(int id) {
         break;
     case 2: KillTimer(main_, 2); capture_.FirePending(); break;
     case 3: KillTimer(main_, 3); capture_.FireDelayedStep(); break;
+    case TIMER_SHOW_FALLBACK:
+        // 兜底：WebView2 迟迟不就绪（未安装运行时/创建失败）也必须让界面可见，
+        // 此时 Web 区域由 HostWndProc 的 WM_PAINT 显示过渡提示
+        KillTimer(main_, TIMER_SHOW_FALLBACK);
+        ShowMainWindow();
+        break;
     }
 }
 
@@ -775,25 +800,28 @@ void App::OnStartPageMessage(const std::wstring& msg) {
 
 void App::ShowStartPage() {
     startPageActive_ = true;
+    // CSS 变量由当前调色板生成（theme::StartPageCss）：起始页与原生绘制同源，
+    // 消除此前硬编码靛蓝 #4B62E6 与原生翠绿两套配色并存的问题，并跟随系统深浅色
     std::string html =
         "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>"
+        + theme::StartPageCss() +
         "*{box-sizing:border-box;margin:0;padding:0}"
-        "body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:#F2F4F8;color:#1A1E28;"
+        "body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:var(--canvas);color:var(--text);"
         "min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}"
         ".wrap{max-width:600px;width:100%}"
-        ".logo{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#4B62E6,#7C8DF2);"
-        "display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:600;margin-bottom:20px}"
+        ".logo{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent-fill));"
+        "display:flex;align-items:center;justify-content:center;color:var(--on-accent);font-size:24px;font-weight:600;margin-bottom:20px}"
         "h1{font-size:22px;font-weight:600;margin-bottom:8px}"
-        ".sub{font-size:13px;color:#5F6B7A;margin-bottom:28px}"
+        ".sub{font-size:13px;color:var(--text-2);margin-bottom:28px}"
         ".steps{display:flex;gap:12px;margin-bottom:28px}"
-        ".step{flex:1;background:#fff;border:1px solid #E2E6EF;border-radius:12px;padding:14px 14px 16px}"
-        ".step b{display:block;font-size:12px;color:#4B62E6;margin-bottom:8px;font-weight:600}"
-        ".step span{font-size:12px;color:#5F6B7A;line-height:1.6}"
+        ".step{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:14px 14px 16px}"
+        ".step b{display:block;font-size:12px;color:var(--accent-text);margin-bottom:8px;font-weight:600}"
+        ".step span{font-size:12px;color:var(--text-2);line-height:1.6}"
         ".chips{display:flex;flex-wrap:wrap;gap:8px}"
-        ".chip{background:#fff;border:1px solid #E2E6EF;border-radius:999px;padding:8px 16px;font-size:12px;"
+        ".chip{background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:8px 16px;font-size:12px;"
         "cursor:pointer;transition:all .15s;user-select:none}"
-        ".chip:hover{border-color:#4B62E6;color:#394CC4;background:#EAEEFD}"
-        ".tip{margin-top:28px;font-size:11px;color:#99A3B2;line-height:1.8}"
+        ".chip:hover{border-color:var(--accent);color:var(--accent-text);background:var(--accent-tint)}"
+        ".tip{margin-top:28px;font-size:11px;color:var(--text-3);line-height:1.8}"
         "</style></head><body><div class=\"wrap\">"
         "<div class=\"logo\">C</div>"
         "<h1>Cookie 抓取工具</h1>"
@@ -835,17 +863,18 @@ static bool NavSelected(int id, int page) {
 static void DrawNavButton(const DRAWITEMSTRUCT* dis, App* app) {
     HDC dc = dis->hDC;
     RECT rc = dis->rcItem;
+    const Palette& pal = theme::Current();
     // 背景：owner-draw BUTTON 的擦除行为不可靠，必须自行填充底色，
     // 否则旧帧像素（如上一次的选中态）会永久残留
     RECT rb = dis->rcItem;
-    HBRUSH bgs = CreateSolidBrush(theme::SURFACE);
+    HBRUSH bgs = CreateSolidBrush(pal.surface);
     FillRect(dc, &rb, bgs);
     DeleteObject(bgs);
     int id = GetDlgCtrlID(dis->hwndItem);
     bool sel = NavSelected(id, app->Page());
     bool hot = app->HoverCtl() == dis->hwndItem;
     // 2.0 风格：纯文本标签，选中 = 主色文字 + 底部下划线
-    COLORREF tc = sel ? theme::ACCENT_DARK : (hot ? theme::TEXT : theme::TEXT2);
+    COLORREF tc = sel ? pal.accentText : (hot ? pal.text : pal.text2);
     wchar_t label[32] = {};
     GetWindowTextW(dis->hwndItem, label, 32);
     TextOut2(dc, label, rc, sel ? app->FontNavB() : app->FontNav(), tc,
@@ -854,7 +883,7 @@ static void DrawNavButton(const DRAWITEMSTRUCT* dis, App* app) {
         int uw = (rc.right - rc.left) - app->S(28);
         int ux = rc.left + app->S(14);
         int uy = rc.bottom - app->S(4);
-        FillRoundRect(dc, { ux, uy, ux + uw, uy + app->S(3) }, app->S(2), theme::ACCENT, CLR_NONE);
+        FillRoundRect(dc, { ux, uy, ux + uw, uy + app->S(3) }, app->S(2), pal.accent, CLR_NONE);
     }
 }
 
@@ -865,31 +894,33 @@ static void DrawModernButton(const DRAWITEMSTRUCT* dis, App* app) {
     bool hot = app->HoverCtl() == dis->hwndItem;
     bool press = (dis->itemState & ODS_SELECTED) != 0;
     bool disabled = (dis->itemState & ODS_DISABLED) != 0;
+    const Palette& pal = theme::Current();
     int r = app->S(8);
-    COLORREF fill = CLR_NONE, border = CLR_NONE, text = theme::TEXT;
+    // 状态色与 ui.cpp draw::Button 同语义（BtnPrimary/BtnSecondary/BtnDanger）
+    COLORREF fill = CLR_NONE, border = CLR_NONE, text = pal.text;
     if (disabled) {
-        fill = theme::HOVER; text = theme::TEXT3;
+        fill = pal.track; text = pal.text3;
     } else if (id == ID_BTN_OPEN) {
-        fill = press ? theme::ACCENT_DARK : (hot ? theme::ACCENT_HOV : theme::ACCENT);
-        text = theme::WHITE;
+        fill = press ? pal.accentActive : (hot ? pal.accentHover : pal.accentFill);
+        text = pal.onAccent;
     } else if (id == ID_BTN_SAVE) {
-        fill = press ? theme::ACCENT_DARK : (hot ? theme::ACCENT_HOV : theme::ACCENT);
-        text = theme::WHITE;
+        fill = press ? pal.accentActive : (hot ? pal.accentHover : pal.accentFill);
+        text = pal.onAccent;
     } else if (id == ID_BTN_CAPTURE || id == ID_BTN_CAPTURE_TKN || id == ID_BTN_REFRESH || id == ID_BTN_OPENLOG) {
-        fill = press ? theme::HOVER : theme::SURFACE;
-        border = theme::BORDER;
+        fill = press ? pal.pressed : pal.surface;
+        border = pal.border;
     } else if (id == ID_BTN_CLEAR) {
-        fill = (hot || press) ? theme::DANGER_TINT : theme::SURFACE;
-        border = (hot || press) ? theme::DANGER : theme::BORDER;
-        text = theme::DANGER;
+        fill = (hot || press) ? pal.dangerTint : pal.surface;
+        border = (hot || press) ? pal.danger : pal.border;
+        text = pal.danger;
     } else {
-        fill = (hot || press) ? theme::HOVER : CLR_NONE;
-        text = theme::TEXT2;
+        fill = (hot || press) ? pal.hover : CLR_NONE;
+        text = pal.text2;
     }
-    // 自填背景：owner-draw BUTTON 擦除不可靠，透明态须显式铺卡片白底
+    // 自填背景：owner-draw BUTTON 擦除不可靠，透明态须显式铺卡片底色
     if (fill == CLR_NONE) {
         RECT rb = dis->rcItem;
-        HBRUSH bgs = CreateSolidBrush(theme::SURFACE);
+        HBRUSH bgs = CreateSolidBrush(pal.surface);
         FillRect(dc, &rb, bgs);
         DeleteObject(bgs);
     }
@@ -930,9 +961,10 @@ static int ToggleIndex(int id) {
 static void DrawToggle(const DRAWITEMSTRUCT* dis, App* app) {
     HDC dc = dis->hDC;
     RECT rc = dis->rcItem;
+    const Palette& pal = theme::Current();
     // 自填背景，防止 hover 灰底/旧帧残留（BUTTON 擦除不可靠）
     RECT rb = dis->rcItem;
-    HBRUSH bgs = CreateSolidBrush(theme::SURFACE);
+    HBRUSH bgs = CreateSolidBrush(pal.surface);
     FillRect(dc, &rb, bgs);
     DeleteObject(bgs);
     int idx = ToggleIndex(GetDlgCtrlID(dis->hwndItem));
@@ -942,9 +974,9 @@ static void DrawToggle(const DRAWITEMSTRUCT* dis, App* app) {
     int bx = rc.left + app->S(2);
     int by = rc.top + (rc.bottom - rc.top - bs) / 2;
     FillRoundRect(dc, { bx, by, bx + bs, by + bs }, app->S(4),
-        on ? theme::ACCENT : theme::SURFACE, on ? CLR_NONE : theme::BORDER);
+        on ? pal.accentFill : pal.surface, on ? CLR_NONE : pal.border);
     if (on) {
-        HPEN pen = CreatePen(PS_SOLID, app->S(2), theme::WHITE);
+        HPEN pen = CreatePen(PS_SOLID, app->S(2), pal.onAccent);
         HGDIOBJ op = SelectObject(dc, pen);
         MoveToEx(dc, bx + bs * 24 / 100, by + bs * 52 / 100, nullptr);
         LineTo(dc, bx + bs * 40 / 100, by + bs * 70 / 100);
@@ -954,7 +986,7 @@ static void DrawToggle(const DRAWITEMSTRUCT* dis, App* app) {
     wchar_t t[160] = {};
     GetWindowTextW(dis->hwndItem, t, 160);
     RECT tr = { bx + bs + app->S(10), rc.top, rc.right - app->S(4), rc.bottom };
-    TextOut2(dc, t, tr, app->FontBody(), theme::TEXT, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    TextOut2(dc, t, tr, app->FontBody(), pal.text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 }
 
 static int SegIndex(int id) {
@@ -969,9 +1001,10 @@ static int SegIndex(int id) {
 static void DrawSegment(const DRAWITEMSTRUCT* dis, App* app) {
     HDC dc = dis->hDC;
     RECT rc = dis->rcItem;
+    const Palette& pal = theme::Current();
     // 自填背景，防止上次选中态残留（owner-draw 擦除不可靠）
     RECT rb = dis->rcItem;
-    HBRUSH bgs = CreateSolidBrush(theme::SURFACE);
+    HBRUSH bgs = CreateSolidBrush(pal.surface);
     FillRect(dc, &rb, bgs);
     DeleteObject(bgs);
     int idx = SegIndex(GetDlgCtrlID(dis->hwndItem));
@@ -981,7 +1014,7 @@ static void DrawSegment(const DRAWITEMSTRUCT* dis, App* app) {
     int r = app->S(7);
     int cx = rc.left + r + app->S(2);
     int cy = (rc.top + rc.bottom) / 2;
-    HPEN pen = CreatePen(PS_SOLID, app->S(2), on ? theme::ACCENT : (hot ? theme::TEXT2 : theme::TEXT3));
+    HPEN pen = CreatePen(PS_SOLID, app->S(2), on ? pal.accent : (hot ? pal.text2 : pal.text3));
     HGDIOBJ op = SelectObject(dc, pen);
     HGDIOBJ ob = SelectObject(dc, GetStockObject(NULL_BRUSH));
     Ellipse(dc, cx - r, cy - r, cx + r, cy + r);
@@ -989,7 +1022,7 @@ static void DrawSegment(const DRAWITEMSTRUCT* dis, App* app) {
     SelectObject(dc, op);
     DeleteObject(pen);
     if (on) {
-        HBRUSH br = CreateSolidBrush(theme::ACCENT);
+        HBRUSH br = CreateSolidBrush(pal.accent);
         HGDIOBJ ob2 = SelectObject(dc, br);
         int r2 = r - app->S(3);
         Ellipse(dc, cx - r2, cy - r2, cx + r2, cy + r2);
@@ -999,7 +1032,7 @@ static void DrawSegment(const DRAWITEMSTRUCT* dis, App* app) {
     wchar_t t[32] = {};
     GetWindowTextW(dis->hwndItem, t, 32);
     RECT tr = { cx + r + app->S(8), rc.top, rc.right, rc.bottom };
-    TextOut2(dc, t, tr, app->FontBody(), on ? theme::TEXT : theme::TEXT2,
+    TextOut2(dc, t, tr, app->FontBody(), on ? pal.text : pal.text2,
         DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 }
 
@@ -1008,13 +1041,15 @@ static void DrawTitleButton(HDC dc, App* app, HWND hwnd, int i) {
     RECT rc = app->TitleBtnRect(i);
     bool hot = app->TitleBtnHot() == i;
     bool press = app->TitleBtnPress() == i;
-    COLORREF bg = CLR_NONE, glyph = theme::TEXT;
+    const Palette& pal = theme::Current();
+    COLORREF bg = CLR_NONE, glyph = pal.text;
     if (i == 2) {
-        if (press) { bg = RGB(0xDC, 0x26, 0x26); glyph = theme::WHITE; }
-        else if (hot) { bg = RGB(0xEF, 0x44, 0x44); glyph = theme::WHITE; }
+        // 关闭按钮：与 draw::Button(BtnDanger) 同语义（hot 浅红底红字 / press 红底白字），不再私设 RGB
+        if (press) { bg = pal.danger; glyph = pal.onAccent; }
+        else if (hot) { bg = pal.dangerTint; glyph = pal.danger; }
     } else {
-        if (press) bg = theme::HOVER;
-        else if (hot) bg = theme::HOVER;
+        if (press) bg = pal.pressed;
+        else if (hot) bg = pal.hover;
     }
     if (bg != CLR_NONE) {
         HBRUSH br = CreateSolidBrush(bg);
@@ -1032,6 +1067,7 @@ static RECT ScrollBarRect(App* app) {
 
 static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
     App* app = g_app;
+    const Palette& pal = theme::Current();
     int titleH = app->TitleH();
     // 内容底
     FillRect(dc, &rc, app->BrushAppBg());
@@ -1048,7 +1084,7 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
     std::wstring title = L"Cookie 抓取工具";
     if (!app->CaptionText().empty()) title += L"   ·   " + app->CaptionText();
     RECT tr = { app->S(42), 0, app->TitleBtnRect(0).left - app->S(8), titleH };
-    TextOut2(dc, title, tr, app->FontTitle(), app->IsActive() ? theme::TEXT : theme::TEXT3,
+    TextOut2(dc, title, tr, app->FontTitle(), app->IsActive() ? pal.text : pal.text3,
         DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     for (int i = 0; i < 3; i++) DrawTitleButton(dc, app, hwnd, i);
 
@@ -1063,9 +1099,9 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
         const wchar_t* brand = L"Cookie抓取工具";
         SIZE bs; GetTextExtentPoint32W(dc, brand, 10, &bs);
         RECT br = { bx, nav.top, bx + bs.cx + app->S(4), nav.bottom };
-        TextOut2(dc, brand, br, app->FontTitle(), theme::ACCENT_DARK, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        TextOut2(dc, brand, br, app->FontTitle(), pal.accentText, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         RECT vr = { bx + bs.cx + app->S(8), nav.top, bx + bs.cx + app->S(64), nav.bottom };
-        TextOut2(dc, L"v3.0", vr, app->FontCaption(), theme::TEXT3, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        TextOut2(dc, L"v3.0", vr, app->FontCaption(), pal.text3, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     }
 
     // 全宽状态栏（2.0）：● 状态文字 … Cookie/Token 计数 … 日志路径
@@ -1074,11 +1110,11 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
     RECT slLine = { sl.left, sl.top, sl.right, sl.top + 1 };
     FillRect(dc, &slLine, app->BrushBorder());
     {
-        COLORREF dot = theme::TEXT3;
+        COLORREF dot = pal.text3;
         const std::wstring& st = app->StatusText();
-        if (st.find(L"成功") != std::wstring::npos) dot = theme::SUCCESS;
-        else if (st.find(L"失败") != std::wstring::npos || st.find(L"错误") != std::wstring::npos) dot = theme::DANGER;
-        else if (st.find(L"正在") != std::wstring::npos || st.find(L"抓取中") != std::wstring::npos) dot = theme::ACCENT;
+        if (st.find(L"成功") != std::wstring::npos) dot = pal.success;
+        else if (st.find(L"失败") != std::wstring::npos || st.find(L"错误") != std::wstring::npos) dot = pal.danger;
+        else if (st.find(L"正在") != std::wstring::npos || st.find(L"抓取中") != std::wstring::npos) dot = pal.accent;
         int cy = (sl.top + sl.bottom) / 2;
         int dr = app->S(4);
         DrawCookieDot(dc, sl.left + app->S(16), cy, dr, dot);
@@ -1105,36 +1141,36 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
         int countsLeft = countsRight - total;
         int x = countsLeft;
         RECT r1 = { x, sl.top, x + lw1.cx, sl.bottom };
-        TextOut2(dc, l1, r1, app->FontBtn(), theme::TEXT2, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        TextOut2(dc, l1, r1, app->FontBtn(), pal.text2, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         x += lw1.cx;
         RECT r2 = { x, sl.top, x + nw1.cx, sl.bottom };
-        TextOut2(dc, n1, r2, app->FontBtn(), theme::ACCENT_DARK, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        TextOut2(dc, n1, r2, app->FontBtn(), pal.accentText, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         x += nw1.cx + gap;
         RECT r3 = { x, sl.top, x + lw2.cx, sl.bottom };
-        TextOut2(dc, l2, r3, app->FontBtn(), theme::TEXT2, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        TextOut2(dc, l2, r3, app->FontBtn(), pal.text2, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         x += lw2.cx;
         RECT r4 = { x, sl.top, x + nw2.cx, sl.bottom };
-        TextOut2(dc, n2, r4, app->FontBtn(), theme::ACCENT_DARK, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        TextOut2(dc, n2, r4, app->FontBtn(), pal.accentText, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         // 状态文字（左侧，到计数边界为止）
         int statusRight = countsLeft - app->S(10);
         if (statusRight < sl.left + app->S(160)) statusRight = sl.left + app->S(160);
         RECT sr = { sl.left + app->S(30), sl.top, statusRight, sl.bottom };
-        TextOut2(dc, status, sr, app->FontBody(), theme::TEXT2, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        TextOut2(dc, status, sr, app->FontBody(), pal.text2, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
         RECT lr = { dirLeft, sl.top, dirRight, sl.bottom };
-        TextOut2(dc, dir, lr, app->FontCaption(), theme::TEXT3,
+        TextOut2(dc, dir, lr, app->FontCaption(), pal.text3,
             DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_PATH_ELLIPSIS);
     }
 
     if (app->Page() == 0) {
         // 工具栏卡片
-        FillRoundRect(dc, app->toolbarCard_, app->S(10), theme::SURFACE, theme::BORDER);
+        FillRoundRect(dc, app->toolbarCard_, app->S(10), pal.surface, pal.border);
         // 搜索图标（放大镜）绘制在地址框左侧
         {
             RECT& tb = app->toolbarCard_;
             int gcx = tb.left + app->S(26);
             int gcy = (tb.top + tb.bottom) / 2;
             int gr = app->S(6);
-            HPEN pen = CreatePen(PS_SOLID, app->S(2), theme::TEXT3);
+            HPEN pen = CreatePen(PS_SOLID, app->S(2), pal.text3);
             HGDIOBJ op = SelectObject(dc, pen);
             HGDIOBJ ob = SelectObject(dc, GetStockObject(NULL_BRUSH));
             Ellipse(dc, gcx - gr, gcy - gr, gcx + gr, gcy + gr);
@@ -1143,18 +1179,18 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
             SelectObject(dc, ob); SelectObject(dc, op); DeleteObject(pen);
         }
         // Web 卡片
-        FillRoundRect(dc, app->webCard_, app->S(10), theme::SURFACE, theme::BORDER);
+        FillRoundRect(dc, app->webCard_, app->S(10), pal.surface, pal.border);
     } else if (app->Page() == 1) {
         // 设置页：单张大表单卡片（2.0 结构）
         RECT view = app->SettingsViewRect();
-        FillRoundRect(dc, view, app->S(12), theme::SURFACE, theme::BORDER);
+        FillRoundRect(dc, view, app->S(12), pal.surface, pal.border);
         SettingsRows m = SettingsFormMetrics(app, view);
         int sy = -app->SettingsScroll();
         HRGN clip = CreateRectRgn(view.left, view.top, view.right, view.bottom);
         SelectClipRgn(dc, clip);
         auto label = [&](int row, const wchar_t* t) {
             RECT lr = { m.labelX, view.top + row + sy, m.labelX + app->S(88), view.top + row + sy + app->S(26) };
-            TextOut2(dc, t, lr, app->FontBody(), theme::TEXT2, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            TextOut2(dc, t, lr, app->FontBody(), pal.text2, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         };
         label(m.combo, L"网站预设");
         label(m.login, L"登录网址");
@@ -1162,12 +1198,12 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
         label(m.radio, L"Cookie 格式");
         label(m.datadir, L"数据目录");
         RECT dvr = { m.ctrlX, view.top + m.datadir + sy, view.right - m.pad, view.top + m.datadir + sy + app->S(20) };
-        TextOut2(dc, app->LogDir(), dvr, app->FontCaption(), theme::TEXT3,
+        TextOut2(dc, app->LogDir(), dvr, app->FontCaption(), pal.text3,
             DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_PATH_ELLIPSIS);
         std::wstring hint = app->HintText();
         if (hint.empty()) hint = L"提示：修改后点击「保存设置」立即生效。";
         RECT hr = { m.labelX, view.top + m.hint + sy, view.right - m.pad, view.top + m.hint + sy + app->S(18) };
-        TextOut2(dc, hint, hr, app->FontCaption(), theme::TEXT3, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        TextOut2(dc, hint, hr, app->FontCaption(), pal.text3, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
         SelectClipRgn(dc, nullptr);
         DeleteObject(clip);
 
@@ -1181,18 +1217,19 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
             int maxScroll = app->SettingsContentH() - viewH;
             int ty = view.top + (int)((int64_t)app->SettingsScroll() * (viewH - thumbH) / maxScroll);
             RECT thumb = { sb.left, ty, sb.right, ty + thumbH };
-            FillRoundRect(dc, sb, trackW / 2, theme::TRACK, CLR_NONE);
-            FillRoundRect(dc, thumb, trackW / 2, app->ScrollBarHot() || app->ScrollBarDragging() ? theme::TEXT2 : RGB(0xCB, 0xD5, 0xE1), CLR_NONE);
+            FillRoundRect(dc, sb, trackW / 2, pal.track, CLR_NONE);
+            // thumb 与 draw::Scrollbar 同语义：hot/drag 用主色，常态用 knobOff（不再私设 RGB）
+            FillRoundRect(dc, thumb, trackW / 2, app->ScrollBarHot() || app->ScrollBarDragging() ? pal.accent : pal.knobOff, CLR_NONE);
         }
     } else {
         // 说明页（2.0 第三标签）
         RECT card = { app->S(24), titleH + app->TopNavH() + app->S(16),
             rc.right - app->S(24), app->statusLine_.top - app->S(12) };
-        FillRoundRect(dc, card, app->S(12), theme::SURFACE, theme::BORDER);
+        FillRoundRect(dc, card, app->S(12), pal.surface, pal.border);
         int pad = app->S(28);
         int y = card.top + pad;
         RECT tr = { card.left + pad, y, card.right - pad, y + app->S(30) };
-        TextOut2(dc, L"使用说明", tr, app->FontCard(), theme::TEXT, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        TextOut2(dc, L"使用说明", tr, app->FontCard(), pal.text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         y += app->S(46);
         struct HelpLine { const wchar_t* head; const wchar_t* body; };
         HelpLine lines[] = {
@@ -1205,9 +1242,9 @@ static void PaintMain(HWND hwnd, HDC dc, const RECT& rc) {
         };
         for (auto& ln : lines) {
             RECT h1 = { card.left + pad, y, card.left + pad + app->S(140), y + app->S(22) };
-            TextOut2(dc, ln.head, h1, app->FontBtn(), theme::ACCENT_DARK, DT_LEFT | DT_TOP | DT_SINGLELINE);
+            TextOut2(dc, ln.head, h1, app->FontBtn(), pal.accentText, DT_LEFT | DT_TOP | DT_SINGLELINE);
             RECT b1 = { card.left + pad + app->S(150), y, card.right - pad, y + app->S(42) };
-            TextOut2(dc, ln.body, b1, app->FontBody(), theme::TEXT2, DT_LEFT | DT_TOP | DT_WORDBREAK);
+            TextOut2(dc, ln.body, b1, app->FontBody(), pal.text2, DT_LEFT | DT_TOP | DT_WORDBREAK);
             y += app->S(48);
         }
     }
@@ -1495,8 +1532,8 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORLISTBOX: {
         HDC dc = (HDC)wp;
-        SetBkColor(dc, theme::SURFACE);
-        SetTextColor(dc, theme::TEXT);
+        SetBkColor(dc, theme::Current().surface);
+        SetTextColor(dc, theme::Current().text);
         return (LRESULT)app->BrushSurface();
     }
     case WM_COMMAND: {
@@ -1546,13 +1583,17 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     }
+    case WM_APP_WEBVIEW_READY:
+        app->OnWebViewReady();
+        return 0;
     case WM_TIMER:
         app->OnTimer((int)wp);
         return 0;
     case WM_DESTROY:
-        KillTimer(hwnd, 1);
+        KillTimer(hwnd, TIMER_LOGIN_POLL);
         KillTimer(hwnd, 2);
         KillTimer(hwnd, 3);
+        KillTimer(hwnd, TIMER_SHOW_FALLBACK);
         app->KillCaptureTimers();
         app->ShutdownWebView();   // 先关闭 WebView2 再销毁窗口
         app->FreeMemBuffer();
@@ -1567,6 +1608,31 @@ static LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_ERASEBKGND:
         return 1;
+    case WM_PAINT: {
+        // WebView2 控制器异步创建期间，宿主子窗口里没有任何子窗口覆盖：
+        // 不自绘就是一块未初始化的黑区（启动即闪黑/空白的直接原因）。
+        // 这里按主题底色 + 提示文字绘制启动过渡帧，控制器就绪后由 WebView2
+        // 子窗口盖住（宿主类带 WS_CLIPCHILDREN），并靠 InvalidateRect 清掉旧帧。
+        PAINTSTRUCT ps;
+        HDC dc = BeginPaint(hwnd, &ps);
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        const Palette& pal = theme::Current();
+        HBRUSH br = CreateSolidBrush(pal.surface);
+        FillRect(dc, &rc, br);
+        DeleteObject(br);
+        App* app = g_app;
+        if (app && !app->IsWebViewReady() && rc.right > rc.left && rc.bottom > rc.top) {
+            SetBkMode(dc, TRANSPARENT);
+            SetTextColor(dc, pal.text3);
+            HGDIOBJ old = SelectObject(dc, app->FontBody());
+            DrawTextW(dc, L"正在初始化浏览器引擎…", -1, &rc,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            SelectObject(dc, old);
+        }
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }

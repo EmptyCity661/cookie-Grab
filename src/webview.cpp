@@ -293,6 +293,11 @@ void WebViewHost::OnControllerCreated(HRESULT hr, ICoreWebView2Controller* contr
         pendingNavToString_.clear();
         webview_->NavigateToString(html.c_str());
     }
+
+    // 控制器已就绪：宿主窗口此前的「正在初始化」过渡画面必须失效重绘，
+    // 否则 Web 卡片区域会残留启动时的那一帧（回收后还会露出一块空白）
+    if (parent_) InvalidateRect(parent_, nullptr, FALSE);
+    if (onReady_) onReady_();
 }
 
 void WebViewHost::Navigate(const std::wstring& url) {
