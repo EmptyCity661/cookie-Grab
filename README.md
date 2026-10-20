@@ -104,7 +104,7 @@ cd d:\itemi\cookie
 
 ```
 .
-├── .qoder/repowiki/        # 中文 Wiki 与知识卡片（随仓库分发，工具生成）
+├── .qoder/repowiki/        # 中文知识卡片（随仓库分发，工具生成；分层 Wiki 可重新生成）
 ├── build.bat               # 唯一构建入口（windres + g++，静态链接）
 ├── make_icon.py            # 纯 Python 生成 32×32 应用图标（非构建步骤）
 ├── README.md
@@ -152,12 +152,11 @@ UI 与业务解耦：WebView2 只通过 `std::function` 回调（`MessageFn` / `
 
 ## 文档
 
-除本 README 外，仓库内 `.qoder/repowiki/` 随代码一同维护一套中文文档：
+除本 README 外，仓库内 `.qoder/repowiki/knowledge/zh/` 随代码一同维护一套中文知识卡片：编码规范、业务术语表、错误处理模式、依赖管理、日志系统、构建脚本与资源内嵌、WebView2 运行时，以及按模块组织的项目文档（`CookieGrabber 单进程桌面抓取工具` 等）。
 
-- `.qoder/repowiki/zh/content/` —— 分层 Wiki：项目概述、安装与构建、架构设计（系统概览 / 事件系统 / 数据流 / 核心模块）、核心模块详解、用户界面系统、工具函数库、配置与部署、测试与调试
-- `.qoder/repowiki/knowledge/zh/` —— 知识卡片：编码规范、业务术语表、错误处理模式、依赖管理、日志系统、构建脚本与资源内嵌、WebView2 运行时
+> 早期的 `.qoder/repowiki/zh/content/` 分层 Wiki 为迁移前生成、描述的是已删除的 GDI 自绘层，现已移除；如需结构化 Wiki，可用 repowiki 工具按当前代码重新生成。
 
-改动外壳 / 主题 / 抓取相关代码时，同步更新对应的编码规范与业务术语表卡片；新增或调整 `settings.json` 字段时，同步更新设置持久化卡片与「配置与部署」章节。
+改动外壳 / 主题 / 抓取相关代码时，同步更新对应的编码规范与业务术语表卡片；新增或调整 `settings.json` 字段时，同步更新设置持久化卡片。
 
 ---
 
@@ -187,6 +186,21 @@ python test\serve.py            # 监听 http://127.0.0.1:8899
 - **Cookie**：`session_id`、`csrf_token`
 - **Web 存储**：`localStorage` 的 `access_token` / `refresh_token`、`sessionStorage` 的 `jwt`
 - **请求头与响应体**：`POST /api/login` 携带 `Authorization` / `X-Auth-Token`，响应体返回 `access_token`、`refresh_token` 与嵌套的 `user.token`
+
+---
+
+## 贡献指引
+
+欢迎提交 Issue 与 Pull Request。为保持架构与风格一致，请遵循：
+
+- **架构边界**：界面一律走 WebView2 玻璃外壳（`src/shell.*` 以 HTML/CSS 渲染），不要重新引入原生 GDI 自绘控件；被访问站点由 Content WebView2 承载，二者经 `postMessage` / `ExecuteScript` 通信，**Cookie / Token 值绝不进入外壳 DOM、`state` 或页面日志**。
+- **配色与尺寸**：颜色统一取 `theme::Current()` 语义色，禁止裸 `RGB()` 字面量；原生绘制尺寸以 96dpi 逻辑像素书写并经 `App::S()` 缩放。
+- **新增源文件**：`build.bat` 显式列出全部 `.cpp`，新文件必须同时加入 g++ 参数行，否则不参与编译。
+- **构建与验证**：提交前运行 `.\build.bat` 确认可编译；抓取相关改动用 `python test\serve.py` + `login.html` 做端到端验证。
+- **提交信息**：使用清晰的行为描述，建议 `feat:` / `fix:` / `docs:` / `refactor:` 前缀，并说明动机与影响范围。
+- **文档同步**：改动外壳 / 主题 / 抓取逻辑时，同步更新本 README 与 `.qoder/repowiki/knowledge` 下对应知识卡片。
+
+未指定许可证，代码版权归仓库所有者；贡献即表示你同意以此条款并入。
 
 ---
 
