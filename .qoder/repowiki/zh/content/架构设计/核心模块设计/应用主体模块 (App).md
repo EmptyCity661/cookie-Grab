@@ -219,7 +219,7 @@ CopyClip --> Done
 - [capture.cpp:234-253](file://src/capture.cpp#L234-L253)
 
 ### Settings 与 LogWriter 协作
-- Settings：DefaultSettings() 提供预设（微博、知乎、B站、GitHub）；LoadSettings()/SaveSettings() 读写 settings.json，包含 autoCapture、clipboard、history、firstOpenCapture、logFormat、presets。
+- Settings：DefaultSettings() 提供预设（六个主流网盘 + B站/GitHub）；LoadSettings()/SaveSettings() 读写 settings.json，包含 autoCapture、clipboard、history、firstOpenCapture、logFormat、presets。
 - LogWriter：Init() 解析日志目录；Write() 按 mask 写 cookie.log（字符串）、cookie.json（扁平）、cookie_detail.json（结构化明细）、cookie_history.log（追加），线程安全（mutex）。
 
 章节来源
