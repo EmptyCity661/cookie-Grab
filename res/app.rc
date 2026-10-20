@@ -1,0 +1,11 @@
+#include <windows.h>
+#include "ids.h"
+
+// 应用图标
+100 ICON "app.ico"
+
+// 应用清单：comctl v6 + PerMonitorV2 DPI（ld 的空清单合并警告无害，最终保留本清单）
+1 24 "app.manifest"
+
+// 内嵌 WebView2Loader.dll（x64），运行时释放，保证单文件分发
+101 RCDATA "WebView2Loader.dll"

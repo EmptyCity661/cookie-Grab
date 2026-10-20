@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>模拟登录测试页</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+  .box { background: #fff; padding: 32px 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.08); width: 320px; }
+  h2 { margin: 0 0 20px; text-align: center; color: #1f2937; }
+  .qr { width: 180px; height: 180px; margin: 0 auto 16px; background: repeating-conic-gradient(#111 0% 25%, #fff 0% 50%) 0 0/24px 24px; border-radius: 8px; }
+  input { width: 100%; box-sizing: border-box; padding: 10px 12px; margin-bottom: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+  button { width: 100%; padding: 10px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  #status { margin-top: 14px; text-align: center; color: #059669; font-size: 14px; min-height: 20px; }
+  .tip { margin-top: 10px; font-size: 12px; color: #9ca3af; text-align: center; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2 id="title">扫码登录</h2>
+  <div class="qr" id="qr"></div>
+  <input id="user" placeholder="账号" value="testuser">
+  <input id="pass" type="password" placeholder="密码" value="123456">
+  <button id="loginBtn" onclick="doLogin()">登 录</button>
+  <div id="status"></div>
+  <div class="tip">本页面用于测试：登录后会写入 Cookie / localStorage / 带 Token 的请求</div>
+</div>
+<script>
+function doLogin() {
+  // 1) 写入 Cookie（会话 Cookie，模拟服务端 Set-Cookie）
+  document.cookie = "session_id=sess_abc123def456; path=/";
+  document.cookie = "csrf_token=csrf_987654; path=/";
+  // 2) 写入 Web 存储 Token
+  localStorage.setItem("access_token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test_access_token_payload");
+  localStorage.setItem("refresh_token", "rt_5f8a7b6c5d4e3f2a1b");
+  sessionStorage.setItem("jwt", "jwt_header.payload.signature");
+  // 3) 发起带 Authorization 头的登录请求（响应体含 token 字段）
+  fetch("/api/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer fake.jwt.token.for.testing.only",
+      "X-Auth-Token": "xat_1122334455667788"
+    },
+    body: JSON.stringify({ user: "testuser", pass: "123456" })
+  }).then(r => r.json()).then(j => {
+    document.getElementById("title").textContent = "已登录";
+    document.getElementById("qr").style.display = "none";
+    document.getElementById("status").textContent = "登录成功（模拟） code=" + j.code;
+  });
+}
+// 页面加载 1 秒后自动执行登录，便于自动化测试
+setTimeout(doLogin, 1000);
+</script>
+</body>
+</html>

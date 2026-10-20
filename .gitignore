@@ -1,0 +1,19 @@
+# ===== 构建产物 =====
+CookieGrabber.exe
+# 由 build.bat 通过 windres 生成，非源码
+res/app.res
+
+# ===== 运行时数据 / 日志 =====
+*.log
+logs/
+
+# ===== 旧源码备份（非项目源码，仅为历史快照） =====
+backup-20261020/
+
+# ===== 本地代理 / IDE / 智能体数据 =====
+.codebuddy/
+
+# ===== 编辑器临时文件 =====
+*.swp
+*~
+.vscode/
