@@ -1,6 +1,6 @@
----
+﻿---
 kind: logging_system
-name: CookieGrabber 日志系统：LogWriter 多格式输出与原子写入
+name: cookie抓取工具3.0 日志系统：LogWriter 多格式输出与原子写入
 category: logging_system
 scope:
     - '**'
@@ -32,7 +32,7 @@ source_files:
 ## 3. 架构与约定
 
 ### 3.1 日志目录解析
-`LogWriter::Init()` 调用 `util::ResolveLogDir()` 确定日志目录，策略为：**优先 exe 所在目录，不可写时回退到 `%LOCALAPPDATA%\CookieGrabber\logs`**。该行为由头文件注释明确描述。
+`LogWriter::Init()` 调用 `util::ResolveLogDir()` 确定日志目录，策略为：**优先 exe 所在目录，不可写时回退到 `%LOCALAPPDATA%\cookie抓取工具3.0\logs`**。该行为由头文件注释明确描述。
 
 ### 3.2 输出文件与格式
 `LogWriter::Write()` 根据 `mask` 参数和 `Settings::logFormat` 决定输出哪些文件：
@@ -74,7 +74,7 @@ JSON 字段类型约定：
 - **文件名**：固定为 `cookie.log` / `cookie.json` / `cookie_detail.json` / `cookie_history.log`（`src/logwriter.h` 头注释）。
 - **原子写入**：覆盖型日志文件必须通过「临时文件 + 原子替换」写入（`src/logwriter.h` 头注释）。
 - **追加模式**：`cookie_history.log` 使用追加模式（`src/logwriter.h` 头注释）。
-- **目录优先级**：日志目录优先 exe 目录，不可写时回退到 `%LOCALAPPDATA%\CookieGrabber\logs`（`src/logwriter.h` 头注释）。
+- **目录优先级**：日志目录优先 exe 目录，不可写时回退到 `%LOCALAPPDATA%\cookie抓取工具3.0\logs`（`src/logwriter.h` 头注释）。
 - **进程内互斥**：日志写入使用进程内互斥（`src/logwriter.h` 头注释）。
 - **日志格式选择**：通过 `Settings::logFormat`（`LogFormat::String` / `Json` / `Both`）控制输出格式，`cookie.log` 仅在 `String` 或 `Both` 时写入，JSON 文件仅在 `Json` 或 `Both` 时写入（`src/logwriter.cpp` 条件分支）。
 - **历史记录开关**：`cookie_history.log` 仅在 `Settings::history == true` 时写入（`src/logwriter.cpp` L126）。

@@ -1,4 +1,4 @@
----
+﻿---
 kind: build_system
 name: MinGW-w64 + windres 构建脚本与资源内嵌
 category: build_system
@@ -13,7 +13,7 @@ source_files:
 
 ## 1. 构建系统概览
 
-本项目使用 **MinGW-w64 (GCC)** 作为 C++ 编译器，通过根目录的 `build.bat` 批处理脚本完成编译、资源编译与链接。没有 Makefile、CMake、Dockerfile 或 CI 配置；也没有跨平台/交叉编译目标。构建产物为单个 `CookieGrabber.exe`（x64），WebView2Loader.dll 被内嵌在资源中并在运行时释放。
+本项目使用 **MinGW-w64 (GCC)** 作为 C++ 编译器，通过根目录的 `build.bat` 批处理脚本完成编译、资源编译与链接。没有 Makefile、CMake、Dockerfile 或 CI 配置；也没有跨平台/交叉编译目标。构建产物为单个 `cookie抓取工具3.0.exe`（x64），WebView2Loader.dll 被内嵌在资源中并在运行时释放。
 
 ## 2. 关键文件
 
@@ -48,8 +48,8 @@ windres --include-dir res --include-dir src res\app.rc -O coff -o res\app.res
 g++ -std=c++17 -O2 -municode -mwindows \
     -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 \
     -Wall \
-    -o CookieGrabber.exe \
-    src/main.cpp src/app.cpp src/theme.cpp src/ui.cpp \
+    -o cookie抓取工具3.0.exe \
+    src/main.cpp src/app.cpp src/theme.cpp src/shell.cpp \
     src/webview.cpp src/capture.cpp src/logwriter.cpp \
     src/settings.cpp src/util.cpp res/app.res \
     -Iinclude -Isrc \
@@ -80,7 +80,7 @@ g++ -std=c++17 -O2 -municode -mwindows \
 - **依赖 MinGW-w64 via WinGet**：`build.bat` 要求 `BrechtSanders.WinLibs.POSIX.UCRT` 包已安装，否则直接退出。
 - **源码文件集合固定**：`build.bat` 显式列出所有 `.cpp` 源文件，新增源文件需手动编辑脚本，没有自动扫描机制。
 - **WebView2Loader.dll 必须存在**：构建前会从 `include/WebView2Loader.dll` 复制到 `res/`，缺失会导致 windres 失败。
-- **无版本化/发布流水线**：没有版本号管理、签名、安装包打包或 CI 步骤；`build.bat` 只产出 `CookieGrabber.exe`。
+- **无版本化/发布流水线**：没有版本号管理、签名、安装包打包或 CI 步骤；`build.bat` 只产出 `cookie抓取工具3.0.exe`。
 - **无 Docker/容器化**：仓库中没有 Dockerfile 或 docker-compose 配置。
 - **无 Make/CMake/Ninja**：整个仓库不存在这些构建系统文件。
 

@@ -1,6 +1,6 @@
-schema_version: 1
+﻿schema_version: 1
 module_path: ""
-title: CookieGrabber 单进程桌面抓取工具
+title: cookie抓取工具3.0 单进程桌面抓取工具
 scope:
     - .gitignore
     - build.bat

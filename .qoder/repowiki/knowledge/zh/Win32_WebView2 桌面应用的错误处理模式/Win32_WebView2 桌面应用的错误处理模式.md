@@ -1,4 +1,4 @@
----
+﻿---
 kind: error_handling
 name: Win32/WebView2 桌面应用的错误处理模式
 category: error_handling
@@ -59,7 +59,7 @@ if (!App::Get().Init(hInstance, initial)) {
 `LogWriter::Write` 使用一个局部 `fail` lambda 把每个文件的写入失败记录到 `errOut` 字符串中，同时继续尝试后续输出格式（cookie.log → cookie.json → cookie_detail.json → cookie_history.log）。最终返回 `ok` 标志位给调用者。这是一种“尽力而为”的错误收集模式，而不是遇到第一个错误就中断。
 
 ### 3.4 WebView2 资源加载失败的处理
-`LoadLoaderDll` 先尝试从 exe 同目录加载 `WebView2Loader.dll`，失败则从内嵌资源释放到 `%TEMP%\CookieGrabber\WebView2Loader.dll` 再加载。任一阶段失败都返回 `nullptr`，由 `Create` 转为 `false`。
+`LoadLoaderDll` 先尝试从 exe 同目录加载 `WebView2Loader.dll`，失败则从内嵌资源释放到 `%TEMP%\cookie抓取工具3.0\WebView2Loader.dll` 再加载。任一阶段失败都返回 `nullptr`，由 `Create` 转为 `false`。
 
 ### 3.5 浏览器端 JS 钩子的异常隔离
 `TokenHookScript()` 返回的内嵌 JS 代码大量使用 `try { ... } catch(e){}` 包裹 `postMessage`、`localStorage/sessionStorage` 访问、`fetch` 拦截、`XMLHttpRequest` 重写等逻辑，确保单个站点或某个请求的异常不会污染其他站点的抓取。

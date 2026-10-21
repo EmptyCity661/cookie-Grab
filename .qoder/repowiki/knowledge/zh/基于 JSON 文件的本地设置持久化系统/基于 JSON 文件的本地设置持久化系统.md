@@ -1,4 +1,4 @@
----
+﻿---
 kind: configuration_system
 name: 基于 JSON 文件的本地设置持久化系统
 category: configuration_system
@@ -20,13 +20,13 @@ source_files:
 
 - `src/settings.h` — 定义 `Settings` 结构体、`LogFormat` 枚举、`Preset` 结构体及四个 API：`LoadSettings()` / `SaveSettings()` / `SettingsFilePath()` / `DefaultSettings()`。
 - `src/settings.cpp` — 实现加载、保存、默认值生成与路径计算。
-- `src/util.h` / `src/util.cpp` — 提供 `LocalAppDir()`（返回 `%LOCALAPPDATA%\CookieGrabber\`）、`ReadFileBytes()`、`WriteFileAtomic()`、`Utf8ToWide()` / `WideToUtf8()` 等基础工具。
+- `src/util.h` / `src/util.cpp` — 提供 `LocalAppDir()`（返回 `%LOCALAPPDATA%\cookie抓取工具3.0\`）、`ReadFileBytes()`、`WriteFileAtomic()`、`Utf8ToWide()` / `WideToUtf8()` 等基础工具。
 - `src/json.h` — 内嵌的微型 JSON 库（`mjson`），用于解析和写入 `settings.json`。
 
 ## 3. 架构与约定
 
 ### 存储位置
-配置文件固定位于 `%LOCALAPPDATA%\CookieGrabber\settings.json`，由 `SettingsFilePath()` 拼接 `util::LocalAppDir()` 与文件名 `kFileName = L"settings.json"` 得到。
+配置文件固定位于 `%LOCALAPPDATA%\cookie抓取工具3.0\settings.json`，由 `SettingsFilePath()` 拼接 `util::LocalAppDir()` 与文件名 `kFileName = L"settings.json"` 得到。
 
 ### 数据结构
 `Settings` 结构体承载所有用户可配置项：
@@ -57,11 +57,11 @@ source_files:
 
 ## 4. 约定与约束
 
-- **文件位置固定**：配置路径由 `SettingsFilePath()` 硬编码为 `%LOCALAPPDATA%\CookieGrabber\settings.json`，无命令行参数或环境变量覆盖机制。
+- **文件位置固定**：配置路径由 `SettingsFilePath()` 硬编码为 `%LOCALAPPDATA%\cookie抓取工具3.0\settings.json`，无命令行参数或环境变量覆盖机制。
 - **向后兼容**：`LoadSettings` 对未知字段忽略、对缺失字段使用默认值，新增字段时只需在结构体和读写逻辑中添加即可。
 - **原子写入**：`SaveSettings` 通过 `WriteFileAtomic` 写入，确保进程异常退出时不会留下半写文件。
 - **预设不可为空**：`presets` 数组中每个元素必须同时有 `name` 和 `url`，且 `url` 非空，否则该条目会被丢弃（见 `settings.cpp:45-49`）。
-- **预设是“整体覆盖”而不是合并**：`LoadSettings` 一旦发现 `settings.json` 里有 `presets` 数组就会先 `s.presets.clear()` 再按文件内容重建（见 `settings.cpp:41-50`）。这意味着修改 `DefaultSettings()` 的内置预设**不会**影响已有 `settings.json` 的老用户；要同步调整预设，必须同时改写 `%LOCALAPPDATA%\CookieGrabber\settings.json`。
+- **预设是“整体覆盖”而不是合并**：`LoadSettings` 一旦发现 `settings.json` 里有 `presets` 数组就会先 `s.presets.clear()` 再按文件内容重建（见 `settings.cpp:41-50`）。这意味着修改 `DefaultSettings()` 的内置预设**不会**影响已有 `settings.json` 的老用户；要同步调整预设，必须同时改写 `%LOCALAPPDATA%\cookie抓取工具3.0\settings.json`。
 - **日志格式白名单**：仅接受 `"string"` / `"json"` / `"both"` 三种字符串值，其他值回退为 `LogFormat::String`。
 - **无加密/鉴权**：`settings.json` 以明文形式存储在用户目录，不包含敏感信息（仅开关与站点预设）。
 - **无运行时热重载**：外部手工编辑 `settings.json` 需重启应用才生效；而由设置页“保存设置”触发的变更会先更新内存中的 `settings_` 再落盘，因此界面提示“立即生效”。
