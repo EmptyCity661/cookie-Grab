@@ -1,7 +1,8 @@
 # ===== 构建产物 =====
-# 最终 exe 与中间产物（build.bat 产出）：中文名 / 中间 CG.exe / GBK 版 app.rc 均忽略
+# 最终 exe 与中间产物；res/WebView2Loader.dll 由 build.bat 从 include/ 复制而来
 cookie抓取工具3.0.exe
 CG.exe
+res/WebView2Loader.dll
 res/_app_gbk.rc
 # 由 build.bat 通过 windres 生成，非源码
 res/app.res
@@ -19,9 +20,8 @@ backup-20261020/
 # .codebuddy/ 仅存插件开关等本机设置；.qoder/repowiki 是项目文档，随仓库分发，不忽略
 .codebuddy/
 
-# ===== 编辑器临时文件 =====
+# ===== 编辑器 / 提交临时文件 =====
 *.swp
 *~
 .vscode/
-# 提交信息临时文件
 commitmsg.txt

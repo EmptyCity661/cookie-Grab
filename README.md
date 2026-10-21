@@ -4,6 +4,8 @@
 
 界面采用 **WebView2 玻璃外壳（Glass Shell）**：整个窗口 chrome（标题栏 / 顶部导航 / 工具栏 / 内容视口 / 设置页 / 说明页 / 状态栏）由一个铺满客户区的 WebView2 以 HTML/CSS 渲染，被访问的网站则由独立的 Content WebView2 承载。程序静态链接为**单个 `cookie抓取工具3.0.exe`（约 3.3 MB）**，`WebView2Loader.dll` 以资源内嵌，拷走一个文件即可运行。
 
+> **许可证** [Apache-2.0](LICENSE)（版权 © 空.城） · **发布版本** [Releases](https://github.com/wudicyg/cookie-Grab/releases)（当前 `v1.0.0`） · **贡献指南** [CONTRIBUTING.md](CONTRIBUTING.md) · **变更记录** [CHANGELOG.md](CHANGELOG.md)
+
 ---
 
 ## 功能特性
@@ -100,14 +102,35 @@ cd d:\itemi\cookie
 
 ---
 
+## 配置说明
+
+首次运行会在 `%LOCALAPPDATA%\cookie抓取工具3.0\settings.json` 生成配置，「保存设置」时写回。字段如下：
+
+| 字段 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `autoCapture` | bool | `true` | 检测到登录状态变化时自动抓取 |
+| `firstOpenCapture` | bool | `true` | 导航完成后首次打开即抓取一次 |
+| `clipboard` | bool | `true` | 抓取后自动复制 Cookie 串到剪贴板 |
+| `history` | bool | `true` | 追加写入 `cookie_history.log` |
+| `logFormat` | string | `"string"` | 日志格式：`string` / `json` / `both` |
+| `presets` | array | 内置 8 项 | 网站预设，元素为 `{"name":"...","url":"..."}` |
+
+> `logFormat` 决定落盘格式：`string`→`cookie.log`，`json`→`cookie.json`，`both`→两者都写；此外固定输出 `cookie_detail.json` 与 `cookie_history.log`。
+
+---
+
 ## 目录结构
 
 ```
 .
 ├── .qoder/repowiki/        # 中文知识卡片（随仓库分发，工具生成；分层 Wiki 可重新生成）
 ├── build.bat               # 唯一构建入口（windres + g++，静态链接）
+├── finalize.ps1            # 构建辅助：GBK 转码 + 重命名为中文 exe 名
 ├── make_icon.py            # 纯 Python 生成 32×32 应用图标（非构建步骤）
-├── README.md
+├── README.md               # 本说明
+├── CONTRIBUTING.md         # 贡献指南
+├── CHANGELOG.md            # 版本变更记录
+├── LICENSE                 # Apache-2.0 许可证
 ├── include/
 │   ├── WebView2.h          # vendored 的 WebView2 SDK 头文件
 │   └── WebView2Loader.dll  # vendored 的加载器，构建时复制到 res/
@@ -200,7 +223,7 @@ python test\serve.py            # 监听 http://127.0.0.1:8899
 - **提交信息**：使用清晰的行为描述，建议 `feat:` / `fix:` / `docs:` / `refactor:` 前缀，并说明动机与影响范围。
 - **文档同步**：改动外壳 / 主题 / 抓取逻辑时，同步更新本 README 与 `.qoder/repowiki/knowledge` 下对应知识卡片。
 
-未指定许可证，代码版权归仓库所有者；贡献即表示你同意以此条款并入。
+本项目采用 [Apache-2.0](LICENSE) 许可证（版权 © 空.城）；贡献即表示你同意以其条款并入。完整的开发规范、提交信息与 PR 流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ---
 
