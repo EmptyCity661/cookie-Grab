@@ -29,4 +29,4 @@
 - WebView2 依赖升级需手动替换 `include/WebView2.h` 与 `WebView2Loader.dll`。
 - `.qoder/repowiki` 的分层 Wiki 为工具生成物，可能与最新代码存在滞后。
 
-[1.0.0]: https://github.com/wudicyg/cookie-Grab/releases/tag/v1.0.0
+[1.0.0]: https://github.com/EmptyCity661/cookie-Grab/releases/tag/v1.0.0

@@ -4,7 +4,7 @@
 
 界面采用 **WebView2 玻璃外壳（Glass Shell）**：整个窗口 chrome（标题栏 / 顶部导航 / 工具栏 / 内容视口 / 设置页 / 说明页 / 状态栏）由一个铺满客户区的 WebView2 以 HTML/CSS 渲染，被访问的网站则由独立的 Content WebView2 承载。程序静态链接为**单个 `cookie抓取工具3.0.exe`（约 3.3 MB）**，`WebView2Loader.dll` 以资源内嵌，拷走一个文件即可运行。
 
-> **许可证** [Apache-2.0](LICENSE)（版权 © 空.城） · **发布版本** [Releases](https://github.com/wudicyg/cookie-Grab/releases)（当前 `v1.0.0`） · **贡献指南** [CONTRIBUTING.md](CONTRIBUTING.md) · **变更记录** [CHANGELOG.md](CHANGELOG.md)
+> **许可证** [Apache-2.0](LICENSE)（版权 © 空.城） · **发布版本** [Releases](https://github.com/EmptyCity661/cookie-Grab/releases)（当前 `v1.0.0`） · **贡献指南** [CONTRIBUTING.md](CONTRIBUTING.md) · **变更记录** [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
