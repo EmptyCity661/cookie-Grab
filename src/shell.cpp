@@ -207,7 +207,7 @@ std::string Build(const State& st) {
 
     // 标题栏
     h += "<div class=\"titlebar\">"
-         "<div class=\"brand\"><span class=\"logo\">C</span><span class=\"bt\">Cookie 抓取工具</span><span class=\"ver\">v3.0</span></div>"
+         "<div class=\"brand\"><span class=\"logo\">C</span><span class=\"bt\">cookie抓取工具3.0</span></div>"
          "<div class=\"dragfill\" id=\"drag\"></div>"
          "<div class=\"winbtns\">"
          "<button class=\"wb\" id=\"wmin\" title=\"最小化\">&#xE921;</button>"

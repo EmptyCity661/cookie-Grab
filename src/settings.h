@@ -1,4 +1,4 @@
-// 设置模型与持久化（%LOCALAPPDATA%\CookieGrabber\settings.json）
+// 设置模型与持久化（%LOCALAPPDATA%\cookie抓取工具3.0\settings.json）
 #pragma once
 #include <string>
 #include <vector>

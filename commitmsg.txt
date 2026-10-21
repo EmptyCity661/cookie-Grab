@@ -1,0 +1,9 @@
+refactor: 应用更名为 cookie抓取工具3.0，统一各处名称与版本信息
+
+- 可执行文件输出更名为 cookie抓取工具3.0.exe（build.bat 先编为中间名 CG.exe，再由 finalize.ps1 重命名为中文名，规避 g++ -o 建中文名乱码）
+- 窗口标题、MessageBox、玻璃外壳品牌统一为新名
+- 数据目录/临时目录/单实例互斥体名同步更新（util/webview/app）及相关注释
+- res/app.rc 新增 VERSIONINFO：产品名/内部名/原始文件名/描述为新名，文件版本与产品版本 3.0.0.0，版权 空.城（app.rc 以 GBK 供 windres、langid 用 040904b0，保证中文在文件属性中正确显示）
+- app.manifest 的 name 与 version 更新为 cookie抓取工具3.0 / 3.0.0.0
+- README 同步更新为新名
+- .gitignore 收敛新产物名（cookie抓取工具3.0.exe / CG.exe / res/_app_gbk.rc）

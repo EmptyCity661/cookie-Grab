@@ -36,14 +36,14 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
     initialUrl_ = initialUrl;
     g_app = this;
     // 单实例：两个进程共享 WebView2 userdata 目录会冲突
-    singleInstance_ = CreateMutexW(nullptr, TRUE, L"Local\\CookieGrabberSingleInstance");
+    singleInstance_ = CreateMutexW(nullptr, TRUE, L"Local\\cookie抓取工具3.0SingleInstance");
     if (singleInstance_ && GetLastError() == ERROR_ALREADY_EXISTS) {
         HWND exist = FindWindowW(kMainClass, nullptr);
         if (exist) {
             ShowWindow(exist, SW_RESTORE);
             SetForegroundWindow(exist);
         } else {
-            MessageBoxW(nullptr, L"Cookie 抓取工具已在运行中。", L"提示", MB_ICONINFORMATION);
+            MessageBoxW(nullptr, L"cookie抓取工具3.0 已在运行中。", L"提示", MB_ICONINFORMATION);
         }
         CloseHandle(singleInstance_);
         singleInstance_ = nullptr;
@@ -79,7 +79,7 @@ bool App::Init(HINSTANCE hInst, const std::wstring& initialUrl) {
     settings_ = LoadSettings();
     logger_.Init();
 
-    main_ = CreateWindowExW(0, kMainClass, L"Cookie 抓取工具",
+    main_ = CreateWindowExW(0, kMainClass, L"cookie抓取工具3.0",
         WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, 1180, 780,
         nullptr, nullptr, hInst, nullptr);
     if (!main_) return false;
@@ -355,7 +355,7 @@ void App::ShowStartPage() {
         ".tip{margin-top:28px;font-size:11px;color:var(--text-3);line-height:1.8}"
         "</style></head><body><div class=\"wrap\">"
         "<div class=\"logo\">C</div>"
-        "<h1>Cookie 抓取工具</h1>"
+        "<h1>cookie抓取工具3.0</h1>"
         "<div class=\"sub\">在任意网站完成登录，自动捕获 Cookie 与 Token 并写入日志</div>"
         "<div class=\"steps\">"
         "<div class=\"step\"><b>1 · 打开</b><span>在上方地址栏输入网址并打开</span></div>"

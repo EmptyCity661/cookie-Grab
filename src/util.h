@@ -22,13 +22,13 @@ bool ReadFileBytes(const std::wstring& path, std::string& out);
 
 // 模块（exe）所在目录，带结尾反斜杠
 std::wstring ModuleDir();
-// %LOCALAPPDATA%\CookieGrabber（确保存在）
+// %LOCALAPPDATA%\cookie抓取工具3.0（确保存在）
 std::wstring LocalAppDir();
 // 递归删除目录（静默无界面）
 void DeleteDirRecursive(const std::wstring& path);
 // 目录是否存在
 bool DirExists(const std::wstring& path);
-// 解析日志目录：优先 exe 目录，不可写则回退 %LOCALAPPDATA%\CookieGrabber\logs
+// 解析日志目录：优先 exe 目录，不可写则回退 %LOCALAPPDATA%\cookie抓取工具3.0\logs
 std::wstring ResolveLogDir();
 
 // 原子写（临时文件 + MoveFileEx 替换），data 为 UTF-8 字节

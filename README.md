@@ -1,8 +1,8 @@
-# CookieGrabber · Cookie / Token 抓取工具
+# cookie抓取工具3.0 · Cookie / Token 抓取工具
 
 基于 **Win32 + Microsoft Edge WebView2** 的 Windows 桌面抓取工具：在内嵌浏览器中登录任意网站，自动或手动提取该站点的 **Cookie** 与 **Token**（`localStorage` / `sessionStorage` / 请求头 / JSON 响应体），以多种格式落盘为日志，并可一键复制到剪贴板。
 
-界面采用 **WebView2 玻璃外壳（Glass Shell）**：整个窗口 chrome（标题栏 / 顶部导航 / 工具栏 / 内容视口 / 设置页 / 说明页 / 状态栏）由一个铺满客户区的 WebView2 以 HTML/CSS 渲染，被访问的网站则由独立的 Content WebView2 承载。程序静态链接为**单个 `CookieGrabber.exe`（约 3.3 MB）**，`WebView2Loader.dll` 以资源内嵌，拷走一个文件即可运行。
+界面采用 **WebView2 玻璃外壳（Glass Shell）**：整个窗口 chrome（标题栏 / 顶部导航 / 工具栏 / 内容视口 / 设置页 / 说明页 / 状态栏）由一个铺满客户区的 WebView2 以 HTML/CSS 渲染，被访问的网站则由独立的 Content WebView2 承载。程序静态链接为**单个 `cookie抓取工具3.0.exe`（约 3.3 MB）**，`WebView2Loader.dll` 以资源内嵌，拷走一个文件即可运行。
 
 ---
 
@@ -72,9 +72,9 @@ winget install BrechtSanders.WinLibs.POSIX.UCRT
 
 ```powershell
 cd d:\itemi\cookie
-.\build.bat                          # 产出 CookieGrabber.exe
-.\CookieGrabber.exe                  # 直接运行
-.\CookieGrabber.exe https://pan.baidu.com   # 带初始网址启动
+.\build.bat                          # 产出 cookie抓取工具3.0.exe
+.\cookie抓取工具3.0.exe                  # 直接运行
+.\cookie抓取工具3.0.exe https://pan.baidu.com   # 带初始网址启动
 ```
 
 构建分三步：`copy` 加载器 DLL 到 `res/` → `windres` 编译资源 → `g++` 编译链接。
@@ -91,10 +91,10 @@ cd d:\itemi\cookie
 
 | 内容 | 路径 |
 |---|---|
-| 用户设置 | `%LOCALAPPDATA%\CookieGrabber\settings.json` |
-| WebView2 用户数据 | `%LOCALAPPDATA%\CookieGrabber\userdata` |
-| 日志输出 | 优先 exe 同目录；不可写时回退 `%LOCALAPPDATA%\CookieGrabber\logs` |
-| 释放的内嵌加载器 | `%TEMP%\CookieGrabber\WebView2Loader.dll`（仅当 exe 同目录没有 DLL 时） |
+| 用户设置 | `%LOCALAPPDATA%\cookie抓取工具3.0\settings.json` |
+| WebView2 用户数据 | `%LOCALAPPDATA%\cookie抓取工具3.0\userdata` |
+| 日志输出 | 优先 exe 同目录；不可写时回退 `%LOCALAPPDATA%\cookie抓取工具3.0\logs` |
+| 释放的内嵌加载器 | `%TEMP%\cookie抓取工具3.0\WebView2Loader.dll`（仅当 exe 同目录没有 DLL 时） |
 
 > `settings.json` 中的 `presets` 会**整体覆盖**代码里的内置默认预设。修改 `DefaultSettings()` 后，若本机已有该文件，需一并更新或删除它才能看到变化。
 
@@ -152,7 +152,7 @@ UI 与业务解耦：WebView2 只通过 `std::function` 回调（`MessageFn` / `
 
 ## 文档
 
-除本 README 外，仓库内 `.qoder/repowiki/knowledge/zh/` 随代码一同维护一套中文知识卡片：编码规范、业务术语表、错误处理模式、依赖管理、日志系统、构建脚本与资源内嵌、WebView2 运行时，以及按模块组织的项目文档（`CookieGrabber 单进程桌面抓取工具` 等）。
+除本 README 外，仓库内 `.qoder/repowiki/knowledge/zh/` 随代码一同维护一套中文知识卡片：编码规范、业务术语表、错误处理模式、依赖管理、日志系统、构建脚本与资源内嵌、WebView2 运行时，以及按模块组织的项目文档（如「单进程桌面抓取工具」）。
 
 > 早期的 `.qoder/repowiki/zh/content/` 分层 Wiki 为迁移前生成、描述的是已删除的 GDI 自绘层，现已移除；如需结构化 Wiki，可用 repowiki 工具按当前代码重新生成。
 

@@ -197,7 +197,7 @@ static HMODULE LoadLoaderDll(std::wstring& outPath, bool& fromTemp) {
     std::wstring p = util::ModuleDir() + L"WebView2Loader.dll";
     HMODULE h = LoadLibraryW(p.c_str());
     if (h) { outPath = p; return h; }
-    // 2) 内嵌资源释放到 %TEMP%\CookieGrabber
+    // 2) 内嵌资源释放到 %TEMP%\cookie抓取工具3.0
     HRSRC r = FindResourceW(nullptr, MAKEINTRESOURCEW(RES_LOADER_DLL), RT_RCDATA);
     if (!r) return nullptr;
     HGLOBAL g = LoadResource(nullptr, r);
@@ -207,7 +207,7 @@ static HMODULE LoadLoaderDll(std::wstring& outPath, bool& fromTemp) {
     if (!data) return nullptr;
     wchar_t tmpDir[MAX_PATH];
     GetTempPathW(MAX_PATH, tmpDir);
-    std::wstring dir = std::wstring(tmpDir) + L"CookieGrabber";
+    std::wstring dir = std::wstring(tmpDir) + L"cookie抓取工具3.0";
     CreateDirectoryW(dir.c_str(), nullptr);
     std::wstring target = dir + L"\\WebView2Loader.dll";
     HANDLE f = CreateFileW(target.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);

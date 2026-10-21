@@ -1,6 +1,6 @@
 // 日志写入：cookie.log / cookie.json / cookie_detail.json / cookie_history.log
 // 规则：UTF-8 无 BOM；cookie.log 等覆盖文件用「临时文件+原子替换」；history 追加；
-//       进程内互斥；日志目录优先 exe 目录，不可写回退 %LOCALAPPDATA%\CookieGrabber\logs
+//       进程内互斥；日志目录优先 exe 目录，不可写回退 %LOCALAPPDATA%\cookie抓取工具3.0\logs
 #pragma once
 #include <string>
 #include <vector>

@@ -113,7 +113,7 @@ std::wstring LocalAppDir() {
         CoTaskMemFree(p);
     }
     if (dir.empty()) dir = L"C:\\Users\\Public";
-    dir += L"\\CookieGrabber";
+    dir += L"\\cookie抓取工具3.0";
     CreateDirectoryW(dir.c_str(), nullptr);
     return dir;
 }

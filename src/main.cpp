@@ -12,7 +12,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int nCmdSh
         if (argv) LocalFree(argv);
     }
     if (!App::Get().Init(hInstance, initial)) {
-        MessageBoxW(nullptr, L"程序初始化失败（WebView2 运行时可能未安装）", L"Cookie 抓取工具", MB_ICONERROR);
+        MessageBoxW(nullptr, L"程序初始化失败（WebView2 运行时可能未安装）", L"cookie抓取工具3.0", MB_ICONERROR);
         return 1;
     }
     return App::Get().Run();

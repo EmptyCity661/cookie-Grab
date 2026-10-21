@@ -1,5 +1,8 @@
 # ===== 构建产物 =====
-CookieGrabber.exe
+# 最终 exe 与中间产物（build.bat 产出）：中文名 / 中间 CG.exe / GBK 版 app.rc 均忽略
+cookie抓取工具3.0.exe
+CG.exe
+res/_app_gbk.rc
 # 由 build.bat 通过 windres 生成，非源码
 res/app.res
 
