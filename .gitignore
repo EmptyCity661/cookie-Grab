@@ -23,3 +23,5 @@ backup-20261020/
 *.swp
 *~
 .vscode/
+# 提交信息临时文件
+commitmsg.txt
